@@ -1,3 +1,4 @@
+//roles.types.ts
 import { Role, User, UserRole, RoleName, UserStatus } from '@prisma/client';
 
 // ========== TIPOS BASE PARA RESPUESTAS ==========
