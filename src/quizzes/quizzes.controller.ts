@@ -33,10 +33,7 @@ export class QuizzesController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleName.ADMIN)
   @HttpCode(HttpStatus.CREATED)
-  async create(
-    @Body() createQuizDto: CreateQuizDto,
-    @CurrentUser() user: any,
-  ) {
+  async create(@Body() createQuizDto: CreateQuizDto, @CurrentUser() user: any) {
     return this.quizzesService.create(createQuizDto);
   }
 
@@ -65,19 +62,23 @@ export class QuizzesController {
   ) {
     // Verificar acceso para estudiantes
     if (!user.roles.includes(RoleName.ADMIN)) {
-      await this.quizzesService.checkUserAccessToModule(moduleId, user.id, user.roles);
+      await this.quizzesService.checkUserAccessToModule(
+        moduleId,
+        user.id,
+        user.roles,
+      );
     }
 
-    return this.quizzesService.findByModule(moduleId, user.roles.includes(RoleName.ADMIN));
+    return this.quizzesService.findByModule(
+      moduleId,
+      user.roles.includes(RoleName.ADMIN),
+    );
   }
 
   // GET /quizzes/:id - Obtener quiz por ID
   @Get(':id')
   @UseGuards(JwtAuthGuard)
-  async findOne(
-    @Param('id') id: string,
-    @CurrentUser() user: any,
-  ) {
+  async findOne(@Param('id') id: string, @CurrentUser() user: any) {
     // Verificar acceso para estudiantes
     if (!user.roles.includes(RoleName.ADMIN)) {
       await this.quizzesService.checkUserAccessToQuiz(id, user.id, user.roles);
@@ -91,10 +92,7 @@ export class QuizzesController {
   // GET /quizzes/:id/preview - Vista previa para estudiantes (con preguntas pero sin respuestas)
   @Get(':id/preview')
   @UseGuards(JwtAuthGuard)
-  async getQuizPreview(
-    @Param('id') id: string,
-    @CurrentUser() user: any,
-  ) {
+  async getQuizPreview(@Param('id') id: string, @CurrentUser() user: any) {
     // Verificar acceso
     if (!user.roles.includes(RoleName.ADMIN)) {
       await this.quizzesService.checkUserAccessToQuiz(id, user.id, user.roles);
@@ -118,7 +116,11 @@ export class QuizzesController {
     }
 
     // Verificar acceso
-    await this.quizzesService.checkUserAccessToQuiz(quizId, user.id, user.roles);
+    await this.quizzesService.checkUserAccessToQuiz(
+      quizId,
+      user.id,
+      user.roles,
+    );
 
     return this.quizzesService.submitQuiz(submitQuizDto, user.id);
   }
@@ -143,10 +145,7 @@ export class QuizzesController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleName.ADMIN)
-  async update(
-    @Param('id') id: string,
-    @Body() updateQuizDto: UpdateQuizDto,
-  ) {
+  async update(@Param('id') id: string, @Body() updateQuizDto: UpdateQuizDto) {
     return this.quizzesService.update(id, updateQuizDto);
   }
 

@@ -6,7 +6,13 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Course, CourseStatus, CourseVisibility, Prisma } from '@prisma/client';
+import {
+  Course,
+  CourseStatus,
+  CourseVisibility,
+  EnrollmentStatus,
+  Prisma,
+} from '@prisma/client';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { QueryCoursesDto } from './dto/query-courses.dto';
@@ -121,6 +127,43 @@ export class CoursesService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+  //método para obtener cursos del usuario:
+  async getUserCourses(userId: string) {
+    // Obtener enrollments activos del usuario
+    const enrollments = await this.prisma.enrollment.findMany({
+      where: {
+        userId: userId,
+        status: EnrollmentStatus.ACTIVE,
+        OR: [{ expiresAt: null }, { expiresAt: { gte: new Date() } }],
+      },
+      include: {
+        course: {
+          include: {
+            category: {
+              select: { name: true },
+            },
+            instructor: {
+              select: { firstName: true, lastName: true },
+            },
+            _count: {
+              select: { modules: true },
+            },
+          },
+        },
+      },
+      orderBy: { enrolledAt: 'desc' },
+    });
+
+    return enrollments.map((enrollment) => ({
+      enrollment: {
+        id: enrollment.id,
+        enrolledAt: enrollment.enrolledAt,
+        expiresAt: enrollment.expiresAt,
+        status: enrollment.status,
+      },
+      course: enrollment.course,
+    }));
   }
 
   // Obtener cursos públicos (para estudiantes)

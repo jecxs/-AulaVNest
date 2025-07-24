@@ -13,6 +13,7 @@ import { UploadResourceDto } from './dto/create-resource.dto';
 import { UpdateResourceDto } from './dto/update-resource.dto';
 import { QueryResourcesDto } from './dto/query-resources.dto';
 import * as AdmZip from 'adm-zip';
+import { EnrollmentsService } from '../enrollments/enrollments.service';
 
 @Injectable()
 export class ResourcesService {
@@ -490,25 +491,31 @@ export class ResourcesService {
       return; // Admins tienen acceso completo
     }
 
-    // Verificar enrollment del estudiante
-    const enrollment = await this.prisma.enrollment.findFirst({
-      where: {
-        userId: userId,
-        status: 'ACTIVE',
-        course: {
-          modules: {
-            some: {
-              lessons: {
-                some: { id: lessonId },
-              },
-            },
+    // Obtener información de la lesson y curso
+    const lesson = await this.prisma.lesson.findUnique({
+      where: { id: lessonId },
+      include: {
+        module: {
+          include: {
+            course: true,
           },
         },
       },
     });
 
-    if (!enrollment) {
-      throw new ForbiddenException('You do not have access to this lesson');
+    if (!lesson) {
+      throw new NotFoundException('Lesson not found');
+    }
+
+    // 👈 NUEVO: Usar servicio de enrollments para verificar acceso
+    const enrollmentsService = new EnrollmentsService(this.prisma);
+    const accessCheck = await enrollmentsService.checkUserAccessToCourse(
+      lesson.module.courseId,
+      userId,
+    );
+
+    if (!accessCheck.hasAccess) {
+      throw new ForbiddenException(accessCheck.reason);
     }
   }
 

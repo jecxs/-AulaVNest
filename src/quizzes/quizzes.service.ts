@@ -1,5 +1,4 @@
-
-// quizzes/quizzes.service.ts
+// quizzes/quizzes.service.ts - CORREGIDO
 import {
   Injectable,
   NotFoundException,
@@ -13,6 +12,7 @@ import { CreateQuizDto } from './dto/create-quiz.dto';
 import { UpdateQuizDto } from './dto/update-quiz.dto';
 import { QueryQuizzesDto } from './dto/query-quiz.dto';
 import { SubmitQuizDto, QuizResultDto } from './dto/submit-quiz.dto';
+import { EnrollmentsService } from '../enrollments/enrollments.service';
 
 @Injectable()
 export class QuizzesService {
@@ -38,7 +38,11 @@ export class QuizzesService {
         data: createQuizDto,
         include: {
           module: {
-            select: { id: true, title: true, course: { select: { id: true, title: true } } },
+            select: {
+              id: true,
+              title: true,
+              course: { select: { id: true, title: true } },
+            },
           },
           _count: {
             select: { questions: true },
@@ -59,7 +63,7 @@ export class QuizzesService {
       moduleId,
       courseId,
       sortBy = 'title',
-      sortOrder = 'asc'
+      sortOrder = 'asc',
     } = query;
     const skip = (page - 1) * limit;
 
@@ -67,9 +71,7 @@ export class QuizzesService {
       ...(moduleId && { moduleId }),
       ...(courseId && { module: { courseId } }),
       ...(search && {
-        OR: [
-          { title: { contains: search, mode: 'insensitive' } },
-        ],
+        OR: [{ title: { contains: search, mode: 'insensitive' } }],
       }),
     };
 
@@ -87,7 +89,7 @@ export class QuizzesService {
             select: {
               id: true,
               title: true,
-              course: { select: { id: true, title: true } }
+              course: { select: { id: true, title: true } },
             },
           },
           _count: {
@@ -107,7 +109,7 @@ export class QuizzesService {
           questionsCount: quiz._count.questions,
           totalPoints,
         };
-      })
+      }),
     );
 
     return {
@@ -136,7 +138,7 @@ export class QuizzesService {
       where: { moduleId },
       include: {
         _count: {
-          select: { questions: true },
+          select: { questions: true }, // ← INCLUIR explícitamente el conteo
         },
       },
       orderBy: { title: 'asc' },
@@ -151,10 +153,10 @@ export class QuizzesService {
           title: quiz.title,
           passingScore: quiz.passingScore,
           attemptsAllowed: quiz.attemptsAllowed,
-          questionsCount: quiz._count.questions,
+          questionsCount: quiz._count.questions, // ← Ahora _count está disponible
           totalPoints: isAdmin ? totalPoints : totalPoints, // Por ahora mostramos a ambos
         };
-      })
+      }),
     );
 
     return quizzesWithDetails;
@@ -187,7 +189,27 @@ export class QuizzesService {
 
   // Obtener quiz para estudiante (información básica)
   async findOneForStudent(id: string) {
-    const quiz = await this.findOne(id);
+    // En lugar de usar this.findOne(), hacer la consulta directamente con _count
+    const quiz = await this.prisma.quiz.findUnique({
+      where: { id },
+      include: {
+        module: {
+          include: {
+            course: {
+              select: { id: true, title: true, status: true },
+            },
+          },
+        },
+        _count: {
+          select: { questions: true }, // ← INCLUIR explícitamente el conteo
+        },
+      },
+    });
+
+    if (!quiz) {
+      throw new NotFoundException(`Quiz with ID ${id} not found`);
+    }
+
     const totalPoints = await this.calculateTotalPoints(id);
 
     return {
@@ -195,7 +217,7 @@ export class QuizzesService {
       title: quiz.title,
       passingScore: quiz.passingScore,
       attemptsAllowed: quiz.attemptsAllowed,
-      questionsCount: quiz._count.questions,
+      questionsCount: quiz._count.questions, // ← Ahora _count está disponible
       totalPoints,
     };
   }
@@ -217,19 +239,35 @@ export class QuizzesService {
     };
   }
 
-  // Enviar respuestas de quiz
-  async submitQuiz(submitQuizDto: SubmitQuizDto, userId: string): Promise<QuizResultDto> {
-    // Obtener todas las preguntas del quiz con respuestas correctas
-    const questions = await this.questionsService.findByQuizWithAnswers(submitQuizDto.quizId);
+  // Enviar respuestas de quiz - CORREGIDO
+  async submitQuiz(
+    submitQuizDto: SubmitQuizDto,
+    userId: string,
+  ): Promise<QuizResultDto> {
+    // Obtener todas las preguntas del quiz CON respuestas correctas
+    const questions = await this.prisma.question.findMany({
+      where: { quizId: submitQuizDto.quizId },
+      orderBy: { order: 'asc' },
+      include: {
+        answerOptions: true, // ← INCLUIR explícitamente todas las opciones con isCorrect
+      },
+    });
+
+    // Validar que el quiz tiene preguntas
+    if (questions.length === 0) {
+      throw new BadRequestException('This quiz has no questions');
+    }
 
     // Validar que todas las preguntas están respondidas
-    const questionIds = questions.map(q => q.id);
-    const answeredQuestionIds = submitQuizDto.answers.map(a => a.questionId);
+    const questionIds = questions.map((q) => q.id);
+    const answeredQuestionIds = submitQuizDto.answers.map((a) => a.questionId);
 
-    const missingQuestions = questionIds.filter(id => !answeredQuestionIds.includes(id));
+    const missingQuestions = questionIds.filter(
+      (id) => !answeredQuestionIds.includes(id),
+    );
     if (missingQuestions.length > 0) {
       throw new BadRequestException(
-        `Missing answers for questions: ${missingQuestions.join(', ')}`
+        `Missing answers for questions: ${missingQuestions.join(', ')}`,
       );
     }
 
@@ -239,13 +277,30 @@ export class QuizzesService {
     // Calcular resultados
     let totalScore = 0;
     let maxScore = 0;
-    const answerResults = [];
+    const answerResults: Array<{
+      questionId: string;
+      selectedOptions: string[];
+      correctOptions: string[];
+      isCorrect: boolean;
+      points: number;
+    }> = [];
 
     for (const question of questions) {
-      const userAnswer = submitQuizDto.answers.find(a => a.questionId === question.id);
+      const userAnswer = submitQuizDto.answers.find(
+        (a) => a.questionId === question.id,
+      );
+
+      // Verificación explícita de userAnswer para evitar undefined
+      if (!userAnswer) {
+        throw new BadRequestException(
+          `Missing answer for question ${question.id}`,
+        );
+      }
+
+      // Obtener opciones correctas - ahora isCorrect está disponible
       const correctOptionIds = question.answerOptions
-        .filter(option => option.isCorrect)
-        .map(option => option.id);
+        .filter((option) => option.isCorrect) // ← isCorrect está disponible
+        .map((option) => option.id);
 
       maxScore += question.weight;
 
@@ -253,15 +308,20 @@ export class QuizzesService {
       let isCorrect = false;
       if (question.type === QuestionType.SINGLE) {
         // Para preguntas de opción única
-        isCorrect = userAnswer.selectedOptionIds.length === 1 &&
+        isCorrect =
+          userAnswer.selectedOptionIds.length === 1 &&
           correctOptionIds.includes(userAnswer.selectedOptionIds[0]);
       } else if (question.type === QuestionType.MULTIPLE) {
         // Para preguntas de opción múltiple
-        isCorrect = userAnswer.selectedOptionIds.length === correctOptionIds.length &&
-          userAnswer.selectedOptionIds.every(id => correctOptionIds.includes(id));
+        isCorrect =
+          userAnswer.selectedOptionIds.length === correctOptionIds.length &&
+          userAnswer.selectedOptionIds.every((id) =>
+            correctOptionIds.includes(id),
+          );
       } else if (question.type === QuestionType.TRUEFALSE) {
         // Para preguntas verdadero/falso
-        isCorrect = userAnswer.selectedOptionIds.length === 1 &&
+        isCorrect =
+          userAnswer.selectedOptionIds.length === 1 &&
           correctOptionIds.includes(userAnswer.selectedOptionIds[0]);
       }
 
@@ -298,14 +358,15 @@ export class QuizzesService {
     const quiz = await this.findOne(quizId);
 
     return {
-      message: 'Quiz results will be implemented when QuizAttempt table is added',
+      message:
+        'Quiz results will be implemented when QuizAttempt table is added',
       quizId,
       userId,
       quiz: {
         id: quiz.id,
         title: quiz.title,
         passingScore: quiz.passingScore,
-      }
+      },
     };
   }
 
@@ -395,7 +456,7 @@ export class QuizzesService {
     return {
       totalQuizzes,
       averagePassingScore: Math.round(avgPassingScore._avg.passingScore || 0),
-      topModulesWithQuizzes: quizzesByModule.map(item => ({
+      topModulesWithQuizzes: quizzesByModule.map((item) => ({
         moduleId: item.moduleId,
         quizCount: item._count.moduleId,
       })),
@@ -405,35 +466,49 @@ export class QuizzesService {
   // ========== ACCESS CONTROL METHODS ==========
 
   // Verificar acceso a quiz
-  async checkUserAccessToQuiz(quizId: string, userId: string, userRoles: string[]): Promise<void> {
+  async checkUserAccessToQuiz(
+    quizId: string,
+    userId: string,
+    userRoles: string[],
+  ): Promise<void> {
     if (userRoles.includes(RoleName.ADMIN)) {
       return; // Admins tienen acceso completo
     }
 
-    // Verificar enrollment del estudiante
-    const enrollment = await this.prisma.enrollment.findFirst({
-      where: {
-        userId: userId,
-        status: 'ACTIVE',
-        course: {
-          modules: {
-            some: {
-              quizzes: {
-                some: { id: quizId },
-              },
-            },
+    // Obtener información del quiz y curso
+    const quiz = await this.prisma.quiz.findUnique({
+      where: { id: quizId },
+      include: {
+        module: {
+          include: {
+            course: true,
           },
         },
       },
     });
 
-    if (!enrollment) {
-      throw new ForbiddenException('You do not have access to this quiz');
+    if (!quiz) {
+      throw new NotFoundException('Quiz not found');
+    }
+
+    // 👈 NUEVO: Usar servicio de enrollments
+    const enrollmentsService = new EnrollmentsService(this.prisma);
+    const accessCheck = await enrollmentsService.checkUserAccessToCourse(
+      quiz.module.courseId,
+      userId,
+    );
+
+    if (!accessCheck.hasAccess) {
+      throw new ForbiddenException(accessCheck.reason);
     }
   }
 
   // Verificar acceso a módulo
-  async checkUserAccessToModule(moduleId: string, userId: string, userRoles: string[]): Promise<void> {
+  async checkUserAccessToModule(
+    moduleId: string,
+    userId: string,
+    userRoles: string[],
+  ): Promise<void> {
     if (userRoles.includes(RoleName.ADMIN)) {
       return;
     }

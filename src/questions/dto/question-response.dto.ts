@@ -1,4 +1,4 @@
-// questions/dto/question-response.dto.ts
+// questions/dto/question-response.dto.ts - ACTUALIZADO
 export class AnswerOptionResponseDto {
   id: string;
   text: string;
@@ -17,6 +17,7 @@ export class QuestionResponseDto {
   type: string;
   order: number;
   weight: number;
+  imageUrl?: string; // 👈 NUEVO: URL de la imagen
   quizId: string;
   answerOptions: AnswerOptionResponseDto[];
 }
@@ -27,6 +28,7 @@ export class QuestionForStudentDto {
   type: string;
   order: number;
   weight: number;
+  imageUrl?: string; // 👈 NUEVO: URL de la imagen
   answerOptions: AnswerOptionForStudentDto[];
 }
 
@@ -51,6 +53,8 @@ export class QuestionListDto {
   type: string;
   order: number;
   weight: number;
+  imageUrl?: string; // 👈 NUEVO: URL de la imagen
+  hasImage: boolean; // 👈 NUEVO: Indicador si tiene imagen
   optionsCount: number;
   correctOptionsCount: number;
 }

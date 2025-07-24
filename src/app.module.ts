@@ -11,6 +11,10 @@ import { ModulesModule } from './modules/modules.module';
 import { LessonsModule } from './lessons/lessons.module';
 import { SharedModule } from './shared/shared.module';
 import { ResourcesModule } from './resources/resources.module';
+import { QuizzesModule } from './quizzes/quizzes.module';
+import { QuestionsModule } from './questions/questions.module';
+import { EnrollmentsModule } from './enrollments/enrollments.module';
+import { ProgressModule } from './progress/progress.module';
 
 @Module({
   imports: [
@@ -28,6 +32,10 @@ import { ResourcesModule } from './resources/resources.module';
     ModulesModule,
     LessonsModule,
     ResourcesModule,
+    QuizzesModule,
+    QuestionsModule,
+    EnrollmentsModule,
+    ProgressModule,
   ],
 })
 export class AppModule {}
