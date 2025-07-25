@@ -17,12 +17,14 @@ import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { ProgressModule } from './progress/progress.module';
 import { PaymentReceiptsModule } from './payment-receipts/payment-receipts.module';
 import { LiveSessionsModule } from './live-sessions/live-sessions.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true, // Para usar variables de entorno en toda la app
     }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     SharedModule,
     UsersModule,

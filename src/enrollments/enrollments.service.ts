@@ -14,10 +14,13 @@ import { BulkEnrollmentDto } from './dto/bulk-enrollment.dto';
 import { UpdateEnrollmentDto } from './dto/update-enrollment.dto';
 import { QueryEnrollmentsDto } from './dto/query-enrollments.dto';
 import { EnrollmentWithProgress } from './dto/enrollment-response.dto';
-
+import { NotificationsService } from '../notifications/notifications.service';
 @Injectable()
 export class EnrollmentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   // ========== ENROLLMENT CREATION ==========
 
@@ -34,6 +37,7 @@ export class EnrollmentsService {
     // Verificar que el curso existe
     const course = await this.prisma.course.findUnique({
       where: { id: createEnrollmentDto.courseId },
+      select: { id: true, title: true },
     });
     if (!course) {
       throw new NotFoundException('Course not found');
@@ -62,7 +66,8 @@ export class EnrollmentsService {
     }
 
     try {
-      return await this.prisma.enrollment.create({
+      // Crear enrollment
+      const enrollment = await this.prisma.enrollment.create({
         data: createEnrollmentDto,
         include: {
           user: {
@@ -96,6 +101,11 @@ export class EnrollmentsService {
           },
         },
       });
+
+      // 🔔 EMITIR NOTIFICACIÓN DE NUEVA MATRICULACIÓN
+      await this.emitEnrollmentNotification(enrollment.userId, course);
+
+      return enrollment;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -185,7 +195,21 @@ export class EnrollmentsService {
       },
     };
   }
+  private async emitEnrollmentNotification(userId: string, course: any) {
+    try {
+      await this.notificationsService.createEnrollmentNotification(userId, {
+        courseTitle: course.title,
+        courseId: course.id,
+      });
 
+      console.log(
+        `📚 Enrollment notification sent for user ${userId} in course ${course.title}`,
+      );
+    } catch (error) {
+      // No fallar el enrollment por errores en notificaciones
+      console.error('Error emitting enrollment notification:', error);
+    }
+  }
   // ========== ENROLLMENT QUERIES ==========
 
   // Obtener todos los enrollments con filtros

@@ -14,10 +14,13 @@ import { BulkProgressDto } from './dto/bulk-progress.dto';
 import { UpdateProgressDto } from './dto/update-progress.dto';
 import { QueryProgressDto } from './dto/query-progress.dto';
 import { LessonViewDto, VideoProgressDto } from './dto/lesson-tracking.dto';
-
+import { NotificationsService } from '../notifications/notifications.service';
 @Injectable()
 export class ProgressService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   // ========== PROGRESS CREATION ==========
   // Solo verificar acceso y registrar inicio de sesión (en memoria/frontend)
@@ -478,23 +481,23 @@ export class ProgressService {
   async markLessonComplete(
     userId: string,
     markLessonCompleteDto: MarkLessonCompleteDto,
-  ): Promise<Progress> {
-    // Buscar enrollment activo del usuario para esta lesson
+  ) {
+    const { lessonId, score } = markLessonCompleteDto;
+
+    // Verificar lesson y obtener información completa
     const lesson = await this.prisma.lesson.findUnique({
-      where: { id: markLessonCompleteDto.lessonId },
+      where: { id: lessonId },
       include: {
         module: {
           include: {
             course: {
-              include: {
-                enrollments: {
-                  where: {
-                    userId,
-                    status: 'ACTIVE',
-                  },
-                },
-              },
+              select: { id: true, title: true },
             },
+          },
+        },
+        progress: {
+          where: {
+            enrollment: { userId },
           },
         },
       },
@@ -504,74 +507,177 @@ export class ProgressService {
       throw new NotFoundException('Lesson not found');
     }
 
-    const enrollment = lesson.module.course.enrollments[0];
-    if (!enrollment) {
-      throw new ForbiddenException(
-        'You are not enrolled in this course or enrollment is not active',
-      );
-    }
-
-    // Verificar que el enrollment no ha expirado
-    if (enrollment.expiresAt && enrollment.expiresAt < new Date()) {
-      throw new ForbiddenException('Your enrollment has expired');
-    }
-
-    // Verificar si ya existe progreso
-    const existingProgress = await this.prisma.progress.findUnique({
+    // Verificar enrollment activo
+    const enrollment = await this.prisma.enrollment.findUnique({
       where: {
-        enrollmentId_lessonId: {
-          enrollmentId: enrollment.id,
-          lessonId: markLessonCompleteDto.lessonId,
+        userId_courseId: {
+          userId,
+          courseId: lesson.module.courseId,
         },
       },
     });
 
-    if (existingProgress) {
-      // Si ya existe, actualizar la fecha y score
-      return await this.prisma.progress.update({
-        where: { id: existingProgress.id },
-        data: {
-          completedAt: new Date(),
-          score: markLessonCompleteDto.score,
-        },
-        include: {
-          enrollment: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  email: true,
-                  firstName: true,
-                  lastName: true,
-                },
-              },
-              course: {
-                select: { id: true, title: true },
-              },
-            },
-          },
-          lesson: {
-            select: {
-              id: true,
-              title: true,
-              type: true,
-              order: true,
-              module: {
-                select: { id: true, title: true, order: true },
-              },
-            },
-          },
-        },
-      });
+    if (!enrollment || enrollment.status !== 'ACTIVE') {
+      throw new ForbiddenException('You do not have access to this lesson');
     }
 
-    // Crear nuevo progreso
-    return this.create({
-      enrollmentId: enrollment.id,
-      lessonId: markLessonCompleteDto.lessonId,
-      score: markLessonCompleteDto.score,
-      completedAt: new Date().toISOString(),
+    // Verificar si ya está completada
+    const existingProgress = lesson.progress[0];
+    if (existingProgress?.completedAt) {
+      return {
+        message: 'Lesson already completed',
+        alreadyCompleted: true,
+        progress: existingProgress,
+        lessonTitle: lesson.title,
+        moduleTitle: lesson.module.title,
+        courseTitle: lesson.module.course.title,
+        completedAt: existingProgress.completedAt, // ← AGREGAR AQUÍ
+      };
+    }
+
+    try {
+      // Crear o actualizar progress
+      const progressRecord = await this.prisma.progress.upsert({
+        where: {
+          enrollmentId_lessonId: {
+            enrollmentId: enrollment.id,
+            lessonId,
+          },
+        },
+        update: {
+          completedAt: new Date(),
+          ...(score && { score }),
+        },
+        create: {
+          enrollmentId: enrollment.id,
+          lessonId,
+          completedAt: new Date(),
+          ...(score && { score }),
+        },
+      });
+
+      // 🔔 VERIFICAR Y EMITIR NOTIFICACIONES
+      await this.checkAndEmitNotifications(userId, lesson, enrollment.id);
+
+      return {
+        message: 'Lesson completed successfully',
+        progress: progressRecord,
+        lessonTitle: lesson.title,
+        moduleTitle: lesson.module.title,
+        courseTitle: lesson.module.course.title,
+        completedAt: progressRecord.completedAt, // ← USAR progressRecord EN LUGAR DE progress
+      };
+    } catch (error) {
+      throw new BadRequestException('Failed to mark lesson as complete');
+    }
+  }
+
+  private async checkAndEmitNotifications(
+    userId: string,
+    lesson: any,
+    enrollmentId: string,
+  ) {
+    try {
+      // 1. Verificar si se completó el módulo
+      const moduleCompletion = await this.checkModuleCompletion(
+        enrollmentId,
+        lesson.moduleId,
+      );
+
+      if (moduleCompletion.isCompleted) {
+        // 📧 Notificar módulo completado
+        await this.notificationsService.createModuleCompletedNotification(
+          userId,
+          {
+            title: lesson.module.title,
+            courseName: lesson.module.course.title,
+            courseId: lesson.module.courseId,
+            moduleId: lesson.moduleId,
+          },
+        );
+
+        console.log(
+          `📧 Module completion notification sent for user ${userId}`,
+        );
+      }
+
+      // 2. Verificar si se completó todo el curso
+      const courseCompletion = await this.checkCourseCompletion(
+        enrollmentId,
+        lesson.module.courseId,
+      );
+
+      if (courseCompletion.isCompleted) {
+        // 🎉 Notificar curso completado
+        await this.notificationsService.createCourseCompletedNotification(
+          userId,
+          {
+            title: lesson.module.course.title,
+            id: lesson.module.courseId,
+          },
+        );
+
+        console.log(
+          `🎉 Course completion notification sent for user ${userId}`,
+        );
+      }
+    } catch (error) {
+      // No fallar el progreso por errores en notificaciones
+      console.error('Error emitting progress notifications:', error);
+    }
+  }
+  // Verificar si un módulo está completo
+  private async checkModuleCompletion(enrollmentId: string, moduleId: string) {
+    // Total de lessons en el módulo
+    const totalLessons = await this.prisma.lesson.count({
+      where: { moduleId },
     });
+
+    // Lessons completadas del módulo
+    const completedLessons = await this.prisma.progress.count({
+      where: {
+        enrollmentId,
+        lesson: { moduleId },
+        completedAt: { not: null },
+      },
+    });
+
+    return {
+      isCompleted: completedLessons === totalLessons && totalLessons > 0,
+      totalLessons,
+      completedLessons,
+      percentage:
+        totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0,
+    };
+  }
+
+  // Verificar si un curso está completo
+  private async checkCourseCompletion(enrollmentId: string, courseId: string) {
+    // Total de lessons en el curso
+    const totalLessons = await this.prisma.lesson.count({
+      where: {
+        module: { courseId },
+      },
+    });
+
+    // Lessons completadas del curso
+    const completedLessons = await this.prisma.progress.count({
+      where: {
+        enrollmentId,
+        lesson: {
+          module: { courseId },
+        },
+        completedAt: { not: null },
+      },
+    });
+
+    return {
+      isCompleted: completedLessons === totalLessons && totalLessons > 0,
+      totalLessons,
+      completedLessons,
+      percentage:
+        totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0,
+    };
   }
 
   // Marcar múltiples lessons como completadas (bulk)

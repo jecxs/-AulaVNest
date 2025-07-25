@@ -110,12 +110,29 @@ export class NotificationsService {
       userId,
       type: NotificationType.LIVE_SESSION_REMINDER,
       payload: {
+        sessionId: sessionData.sessionId, // ← AGREGAR para tracking
         sessionTopic: sessionData.topic,
         startsAt: sessionData.startsAt,
         courseName: sessionData.courseName,
         meetingUrl: sessionData.meetingUrl,
+        minutesUntilStart: Math.floor(
+          (new Date(sessionData.startsAt).getTime() - new Date().getTime()) / (1000 * 60)
+        ),
       },
     });
+  }
+  async hasLiveSessionNotificationBeenSent(sessionId: string): Promise<boolean> {
+    const count = await this.prisma.notification.count({
+      where: {
+        type: NotificationType.LIVE_SESSION_REMINDER,
+        payload: {
+          path: ['sessionId'],
+          equals: sessionId,
+        },
+      },
+    });
+
+    return count > 0;
   }
 
   // Nueva matriculación
@@ -310,4 +327,5 @@ export class NotificationsService {
       deletedCount: result.count,
     };
   }
+
 }

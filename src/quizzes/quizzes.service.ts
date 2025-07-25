@@ -13,12 +13,14 @@ import { UpdateQuizDto } from './dto/update-quiz.dto';
 import { QueryQuizzesDto } from './dto/query-quiz.dto';
 import { SubmitQuizDto, QuizResultDto } from './dto/submit-quiz.dto';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
-
+import { NotificationsService } from '../notifications/notifications.service';
 @Injectable()
 export class QuizzesService {
   constructor(
     private prisma: PrismaService,
-    private questionsService: QuestionsService, // Inyectamos el servicio de preguntas
+    private questionsService: QuestionsService,
+    private notificationsService: NotificationsService, // Inyectamos el servicio de preguntas
+    private enrollmentsService: EnrollmentsService,
   ) {}
 
   // Crear quiz
@@ -249,7 +251,7 @@ export class QuizzesService {
       where: { quizId: submitQuizDto.quizId },
       orderBy: { order: 'asc' },
       include: {
-        answerOptions: true, // ← INCLUIR explícitamente todas las opciones con isCorrect
+        answerOptions: true,
       },
     });
 
@@ -271,8 +273,23 @@ export class QuizzesService {
       );
     }
 
-    // Obtener información del quiz
-    const quiz = await this.findOne(submitQuizDto.quizId);
+    // Obtener información del quiz CON información del curso
+    const quiz = await this.prisma.quiz.findUnique({
+      where: { id: submitQuizDto.quizId },
+      include: {
+        module: {
+          include: {
+            course: {
+              select: { id: true, title: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!quiz) {
+      throw new NotFoundException('Quiz not found');
+    }
 
     // Calcular resultados
     let totalScore = 0;
@@ -290,16 +307,15 @@ export class QuizzesService {
         (a) => a.questionId === question.id,
       );
 
-      // Verificación explícita de userAnswer para evitar undefined
       if (!userAnswer) {
         throw new BadRequestException(
           `Missing answer for question ${question.id}`,
         );
       }
 
-      // Obtener opciones correctas - ahora isCorrect está disponible
+      // Obtener opciones correctas
       const correctOptionIds = question.answerOptions
-        .filter((option) => option.isCorrect) // ← isCorrect está disponible
+        .filter((option) => option.isCorrect)
         .map((option) => option.id);
 
       maxScore += question.weight;
@@ -307,19 +323,16 @@ export class QuizzesService {
       // Verificar si la respuesta es correcta
       let isCorrect = false;
       if (question.type === QuestionType.SINGLE) {
-        // Para preguntas de opción única
         isCorrect =
           userAnswer.selectedOptionIds.length === 1 &&
           correctOptionIds.includes(userAnswer.selectedOptionIds[0]);
       } else if (question.type === QuestionType.MULTIPLE) {
-        // Para preguntas de opción múltiple
         isCorrect =
           userAnswer.selectedOptionIds.length === correctOptionIds.length &&
           userAnswer.selectedOptionIds.every((id) =>
             correctOptionIds.includes(id),
           );
       } else if (question.type === QuestionType.TRUEFALSE) {
-        // Para preguntas verdadero/falso
         isCorrect =
           userAnswer.selectedOptionIds.length === 1 &&
           correctOptionIds.includes(userAnswer.selectedOptionIds[0]);
@@ -340,7 +353,7 @@ export class QuizzesService {
     const percentage = Math.round((totalScore / maxScore) * 100);
     const passed = percentage >= quiz.passingScore;
 
-    return {
+    const result: QuizResultDto = {
       quizId: quiz.id,
       score: totalScore,
       maxScore: maxScore,
@@ -349,6 +362,50 @@ export class QuizzesService {
       answers: answerResults,
       submittedAt: new Date(),
     };
+
+    // 🔔 EMITIR NOTIFICACIONES SEGÚN RESULTADO
+    await this.emitQuizResultNotifications(userId, quiz, result);
+
+    return result;
+  }
+  private async emitQuizResultNotifications(
+    userId: string,
+    quiz: any,
+    result: QuizResultDto,
+  ) {
+    try {
+      const quizData = {
+        title: quiz.title,
+        score: result.score,
+        percentage: result.percentage,
+        courseName: quiz.module.course.title,
+      };
+
+      if (result.passed) {
+        // ✅ Quiz aprobado
+        await this.notificationsService.createQuizPassedNotification(
+          userId,
+          quizData,
+        );
+
+        console.log(
+          `✅ Quiz passed notification sent for user ${userId} - ${quiz.title}`,
+        );
+      } else {
+        // ❌ Quiz reprobado
+        await this.notificationsService.createQuizFailedNotification(userId, {
+          ...quizData,
+          passingScore: quiz.passingScore,
+        });
+
+        console.log(
+          `❌ Quiz failed notification sent for user ${userId} - ${quiz.title}`,
+        );
+      }
+    } catch (error) {
+      // No fallar el quiz por errores en notificaciones
+      console.error('Error emitting quiz result notifications:', error);
+    }
   }
 
   // Obtener resultados de un quiz (placeholder para futura implementación con tabla de resultados)
@@ -491,9 +548,8 @@ export class QuizzesService {
       throw new NotFoundException('Quiz not found');
     }
 
-    // 👈 NUEVO: Usar servicio de enrollments
-    const enrollmentsService = new EnrollmentsService(this.prisma);
-    const accessCheck = await enrollmentsService.checkUserAccessToCourse(
+    // ✅ USAR SERVICIO INYECTADO
+    const accessCheck = await this.enrollmentsService.checkUserAccessToCourse(
       quiz.module.courseId,
       userId,
     );
@@ -513,6 +569,7 @@ export class QuizzesService {
       return;
     }
 
+    // ✅ USAR PRISMA DIRECTAMENTE PARA EVITAR DEPENDENCIA CIRCULAR
     const enrollment = await this.prisma.enrollment.findFirst({
       where: {
         userId: userId,
@@ -529,7 +586,6 @@ export class QuizzesService {
       throw new ForbiddenException('You do not have access to this module');
     }
   }
-
   // ========== UTILITY METHODS ==========
 
   // Calcular puntos totales de un quiz

@@ -15,11 +15,13 @@ import { QueryResourcesDto } from './dto/query-resources.dto';
 import * as AdmZip from 'adm-zip';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
 
+
 @Injectable()
 export class ResourcesService {
   constructor(
     private prisma: PrismaService,
     private bunnyService: BunnyService,
+    private enrollmentsService: EnrollmentsService,
   ) {}
 
   // Crear resource básico (manual)
@@ -507,9 +509,8 @@ export class ResourcesService {
       throw new NotFoundException('Lesson not found');
     }
 
-    // 👈 NUEVO: Usar servicio de enrollments para verificar acceso
-    const enrollmentsService = new EnrollmentsService(this.prisma);
-    const accessCheck = await enrollmentsService.checkUserAccessToCourse(
+    // ✅ USAR SERVICIO INYECTADO
+    const accessCheck = await this.enrollmentsService.checkUserAccessToCourse(
       lesson.module.courseId,
       userId,
     );
