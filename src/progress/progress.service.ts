@@ -164,7 +164,10 @@ export class ProgressService {
       message: 'Lesson exit recorded',
       autoCompleted: false,
       timeSpentSeconds,
-      minimumTimeRequired: this.getMinimumTime(lesson.type, lesson.durationSec || undefined),
+      minimumTimeRequired: this.getMinimumTime(
+        lesson.type,
+        lesson.durationSec || undefined,
+      ),
     };
   }
 
@@ -319,8 +322,8 @@ export class ProgressService {
   async getAutoCompletionStats(courseId?: string) {
     const whereClause = courseId
       ? {
-        enrollment: { courseId },
-      }
+          enrollment: { courseId },
+        }
       : {};
 
     const [totalProgress, manualCompletions, autoCompletions] =

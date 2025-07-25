@@ -15,6 +15,8 @@ import { QuizzesModule } from './quizzes/quizzes.module';
 import { QuestionsModule } from './questions/questions.module';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { ProgressModule } from './progress/progress.module';
+import { PaymentReceiptsModule } from './payment-receipts/payment-receipts.module';
+import { LiveSessionsModule } from './live-sessions/live-sessions.module';
 
 @Module({
   imports: [
@@ -36,6 +38,8 @@ import { ProgressModule } from './progress/progress.module';
     QuestionsModule,
     EnrollmentsModule,
     ProgressModule,
+    PaymentReceiptsModule,
+    LiveSessionsModule,
   ],
 })
 export class AppModule {}
