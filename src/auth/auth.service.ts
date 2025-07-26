@@ -64,4 +64,28 @@ export class AuthService {
     }
     return null;
   }
+  async getProfile(userId: string) {
+    const user = await this.usersService.findOne(userId);
+
+    if (!user || !this.usersService.isUserActive(user)) {
+      throw new UnauthorizedException('User not found or inactive');
+    }
+
+    const userRoles = await this.rolesService.getUserRoles(userId);
+
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      isActive: user.status === 'ACTIVE', // ✅ Usar 'status' en lugar de 'isActive'
+      createdAt: user.createdAt,
+      updatedAt: user.createdAt, // ✅ No existe updatedAt en tu schema, usar createdAt
+      roles: userRoles.map(role => ({
+        id: role.id,
+        name: role.name,
+        description: '', // ✅ No tienes description en tu schema, usar string vacío
+      })),
+    };
+  }
 }
