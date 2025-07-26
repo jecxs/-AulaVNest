@@ -1,0 +1,391 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  phone        String?
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime @default(now())
+
+  // Relations
+  roles        UserRole[]
+  enrollments  Enrollment[]
+  enrolledBy   Enrollment[] @relation("EnrolledBy")
+  notifications Notification[]
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model Role {
+  id   String @id @default(cuid())
+  name RoleName @unique
+
+  // Relations
+  users UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model CourseCategory {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  slug        String  @unique
+  description String?
+  isActive    Boolean @default(true)
+
+  // Relations
+  courses Course[]
+
+  @@map("course_categories")
+}
+
+model Instructor {
+  id             String  @id @default(cuid())
+  firstName      String
+  lastName       String
+  email          String?
+  phone          String?
+  bio            String?
+  specialization String?
+  experience     String?
+  linkedinUrl    String?
+  createdAt      DateTime @default(now())
+
+  // Relations
+  courses Course[]
+
+  @@map("instructors")
+}
+
+model Course {
+  id             String      @id @default(cuid())
+  title          String
+  slug           String      @unique
+  summary        String?
+  description    String?
+  level          CourseLevel @default(BEGINNER)
+  thumbnailUrl   String?
+  estimatedHours Int?
+  price          Decimal?
+  status         CourseStatus @default(DRAFT)
+  visibility     CourseVisibility @default(PRIVATE)
+  createdAt      DateTime    @default(now())
+  publishedAt    DateTime?
+
+  // Foreign Keys
+  categoryId   String
+  instructorId String
+
+  // Relations
+  category     CourseCategory @relation(fields: [categoryId], references: [id])
+  instructor   Instructor     @relation(fields: [instructorId], references: [id])
+  modules      Module[]
+  enrollments  Enrollment[]
+  liveSessions LiveSession[]
+
+  @@map("courses")
+}
+
+model Module {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+  order       Int
+  isRequired  Boolean @default(true)
+
+  // Foreign Keys
+  courseId String
+
+  // Relations
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons  Lesson[]
+  quizzes  Quiz[]
+
+  @@map("modules")
+}
+
+model Lesson {
+  id              String      @id @default(cuid())
+  title           String
+  type            LessonType  @default(VIDEO)
+  order           Int
+  durationSec     Int?
+  videoUrl        String?
+  markdownContent String?
+
+  // Foreign Keys
+  moduleId String
+
+  // Relations
+  module    Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  resources Resource[]
+  progress  Progress[]
+
+  @@map("lessons")
+}
+
+model Resource {
+  id       String @id @default(cuid())
+  fileName String
+  fileType String
+  fileUrl  String
+  sizeKb   Int?
+
+  // Foreign Keys
+  lessonId String
+
+  // Relations
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@map("resources")
+}
+
+model Quiz {
+  id             String @id @default(cuid())
+  title          String
+  passingScore   Int    @default(70)
+  attemptsAllowed Int   @default(3)
+
+  // Foreign Keys
+  moduleId String
+
+  // Relations
+  module    Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  questions Question[]
+
+  @@map("quizzes")
+}
+
+model Question {
+  id     String       @id @default(cuid())
+  text   String
+  type   QuestionType @default(SINGLE)
+  order  Int
+  weight Int          @default(1)
+  imageUrl String?
+  // Foreign Keys
+  quizId String
+
+  // Relations
+  quiz          Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answerOptions AnswerOption[]
+
+  @@map("questions")
+}
+
+model AnswerOption {
+  id        String  @id @default(cuid())
+  text      String
+  isCorrect Boolean @default(false)
+
+  // Foreign Keys
+  questionId String
+
+  // Relations
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("answer_options")
+}
+
+model Enrollment {
+  id               String           @id @default(cuid())
+  status           EnrollmentStatus @default(ACTIVE)
+  paymentConfirmed Boolean          @default(false)
+  enrolledAt       DateTime         @default(now())
+  expiresAt        DateTime?
+
+  // Foreign Keys
+  userId       String
+  courseId     String
+  enrolledById String
+
+  // Relations
+  user         User              @relation(fields: [userId], references: [id])
+  course       Course            @relation(fields: [courseId], references: [id])
+  enrolledBy   User              @relation("EnrolledBy", fields: [enrolledById], references: [id])
+  progress     Progress[]
+  paymentReceipts PaymentReceipt[]
+  certificates Certificate[]
+
+  @@unique([userId, courseId])
+  @@map("enrollments")
+}
+
+model Progress {
+  id          String    @id @default(cuid())
+  completedAt DateTime?
+  score       Int?
+
+  // Foreign Keys
+  enrollmentId String
+  lessonId     String
+
+  // Relations
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lesson     Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, lessonId])
+  @@map("progress")
+}
+
+model LiveSession {
+  id         String   @id @default(cuid())
+  topic      String
+  startsAt   DateTime
+  endsAt     DateTime
+  meetingUrl String?
+
+  // Foreign Keys
+  courseId String
+
+  // Relations
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@map("live_sessions")
+}
+
+enum NotificationType {
+  MODULE_COMPLETED
+  QUIZ_PASSED
+  QUIZ_FAILED
+  COURSE_COMPLETED
+  LIVE_SESSION_REMINDER
+  ENROLLMENT_CREATED
+  NEW_CONTENT
+}
+
+model Notification {
+  id      String           @id @default(cuid())
+  type    NotificationType
+  payload Json?
+  readAt  DateTime?
+  sentAt  DateTime         @default(now())
+
+  // Foreign Keys
+  userId String
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model PaymentReceipt {
+  id              String   @id @default(cuid())
+  amount          Decimal
+  currency        String   @default("USD")
+  paidAt          DateTime @default(now())
+  method          String
+  referenceNumber String?
+
+  // Foreign Keys
+  enrollmentId String
+
+  // Relations
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@map("payment_receipts")
+}
+
+model Certificate {
+  id        String   @id @default(cuid())
+  certCode  String   @unique
+  issuedAt  DateTime @default(now())
+
+  // Foreign Keys
+  enrollmentId String @unique
+
+  // Relations
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@map("certificates")
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  entity       String
+  entityId     String
+  action       String
+  diff         Json?
+  timestamp    DateTime @default(now())
+
+  // Foreign Keys
+  actorUserId String
+
+  // Relations
+  actor User @relation(fields: [actorUserId], references: [id])
+
+  @@map("audit_logs")
+}
+
+// Enums
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum RoleName {
+  STUDENT
+  ADMIN
+}
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum CourseVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum LessonType {
+  VIDEO
+  TEXT
+  SCORM
+}
+
+enum QuestionType {
+  SINGLE
+  MULTIPLE
+  TRUEFALSE
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+  COMPLETED
+}
