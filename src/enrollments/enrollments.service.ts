@@ -217,54 +217,62 @@ export class EnrollmentsService {
     const {
       page = 1,
       limit = 10,
-      search,
       userId,
       courseId,
-      categoryId,
       status,
       paymentConfirmed,
       expired,
+      search,
       sortBy = 'enrolledAt',
       sortOrder = 'desc',
     } = query;
+
     const skip = (page - 1) * limit;
 
-    // Construir filtros
-    const where: Prisma.EnrollmentWhereInput = {
-      ...(userId && { userId }),
-      ...(courseId && { courseId }),
-      ...(status && { status }),
-      ...(paymentConfirmed !== undefined && { paymentConfirmed }),
-      ...(categoryId && {
-        course: { categoryId },
-      }),
-      ...(expired === true && {
-        expiresAt: { lt: new Date() },
-      }),
-      ...(expired === false && {
-        OR: [{ expiresAt: null }, { expiresAt: { gte: new Date() } }],
-      }),
-      ...(search && {
-        OR: [
-          { user: { firstName: { contains: search, mode: 'insensitive' } } },
-          { user: { lastName: { contains: search, mode: 'insensitive' } } },
-          { user: { email: { contains: search, mode: 'insensitive' } } },
-          { course: { title: { contains: search, mode: 'insensitive' } } },
-        ],
-      }),
-    };
+    // Construir condiciones WHERE
+    const where: any = {};
 
-    // Crear orderBy
-    const orderBy: Prisma.EnrollmentOrderByWithRelationInput = {};
-    orderBy[sortBy as keyof Prisma.EnrollmentOrderByWithRelationInput] =
-      sortOrder;
+    if (userId) where.userId = userId;
+    if (courseId) where.courseId = courseId;
+    if (status) where.status = status;
+    if (paymentConfirmed !== undefined) where.paymentConfirmed = paymentConfirmed;
 
+    // Filtro de búsqueda
+    if (search) {
+      where.OR = [
+        {
+          user: {
+            OR: [
+              { firstName: { contains: search, mode: 'insensitive' } },
+              { lastName: { contains: search, mode: 'insensitive' } },
+              { email: { contains: search, mode: 'insensitive' } },
+            ],
+          },
+        },
+        {
+          course: {
+            title: { contains: search, mode: 'insensitive' },
+          },
+        },
+      ];
+    }
+
+    // Filtro de expiración
+    if (expired !== undefined) {
+      if (expired) {
+        where.expiresAt = { lt: new Date() };
+      } else {
+        where.OR = [
+          { expiresAt: null },
+          { expiresAt: { gte: new Date() } },
+        ];
+      }
+    }
+
+    // Obtener enrollments con paginación
     const [enrollments, total] = await Promise.all([
       this.prisma.enrollment.findMany({
         where,
-        skip,
-        take: limit,
-        orderBy,
         include: {
           user: {
             select: {
@@ -272,28 +280,51 @@ export class EnrollmentsService {
               email: true,
               firstName: true,
               lastName: true,
+              phone: true,
             },
           },
           course: {
+            // ✅ CORREGIDO: Incluir instructor con todos sus datos
+            include: {
+              category: {
+                select: { name: true, slug: true },
+              },
+              instructor: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                  bio: true,
+                  specialization: true,
+                },
+              },
+              _count: {
+                select: { modules: true },
+              },
+            },
+          },
+          enrolledBy: {
             select: {
               id: true,
-              title: true,
-              price: true,
-              level: true,
+              email: true,
+              firstName: true,
+              lastName: true,
             },
           },
         },
+        skip,
+        take: limit,
+        orderBy: { [sortBy]: sortOrder },
       }),
       this.prisma.enrollment.count({ where }),
     ]);
 
-    // Calcular progreso para cada enrollment
+    // Enriquecer con datos de progreso
     const enrichedEnrollments = await Promise.all(
       enrollments.map(async (enrollment) => {
-        const progress = await this.calculateUserProgress(
-          enrollment.userId,
-          enrollment.courseId,
-        );
+        // Obtener progreso del curso
+        const progress = await this.getEnrollmentProgress(enrollment.id);
 
         return {
           ...enrollment,
@@ -316,6 +347,19 @@ export class EnrollmentsService {
     };
   }
 
+  async getEnrollmentProgress(enrollmentId: string) {
+    // Obtener el enrollment para conseguir userId y courseId
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      select: { userId: true, courseId: true },
+    });
+
+    if (!enrollment) {
+      throw new NotFoundException(`Enrollment with ID ${enrollmentId} not found`);
+    }
+
+    return this.calculateUserProgress(enrollment.userId, enrollment.courseId);
+  }
   // Obtener enrollments pendientes de pago
   async findPendingPayment(query: QueryEnrollmentsDto) {
     return this.findAll({
