@@ -1,4 +1,4 @@
-// shared/services/bunny.service.ts
+// shared/services/bunny.service.ts - AJUSTE MENOR
 import { Injectable, BadRequestException } from '@nestjs/common';
 import axios from 'axios';
 import FormData from 'form-data';
@@ -7,7 +7,7 @@ import FormData from 'form-data';
 export class BunnyService {
   private readonly storageApiUrl = `https://${process.env.BUNNY_STORAGE_HOSTNAME || 'storage.bunnycdn.com'}`;
   private readonly cdnUrl =
-    process.env.BUNNY_CDN_URL || 'https://aula-virtual.b-cdn.net';
+    process.env.BUNNY_CDN_URL || 'https://aula-virtual-cdn.b-cdn.net'; // ← ACTUALIZADO
 
   constructor() {
     // Validar que las variables de entorno estén configuradas
@@ -17,6 +17,10 @@ export class BunnyService {
     ) {
       console.warn('Bunny.net credentials not configured');
     }
+
+    // ← NUEVO: Log para verificar configuración
+    console.log('🐰 Bunny CDN URL:', this.cdnUrl);
+    console.log('🐰 Bunny Storage Zone:', process.env.BUNNY_STORAGE_ZONE);
   }
 
   // Subir video a Bunny.net Storage
@@ -24,6 +28,8 @@ export class BunnyService {
     try {
       const fileName = this.generateFileName(videoFile.originalname, 'video');
       const uploadPath = `videos/${fileName}`;
+
+      console.log('🎬 Uploading video:', uploadPath); // ← Debug log
 
       // Subir archivo a Bunny.net Storage
       await this.uploadToBunnyStorage(
@@ -33,9 +39,12 @@ export class BunnyService {
       );
 
       // Retornar la URL pública del CDN
-      return `${this.cdnUrl}/${uploadPath}`;
+      const publicUrl = `${this.cdnUrl}/${uploadPath}`;
+      console.log('✅ Video uploaded, public URL:', publicUrl); // ← Debug log
+
+      return publicUrl;
     } catch (error) {
-      console.error('Error uploading video to Bunny.net:', error);
+      console.error('❌ Error uploading video to Bunny.net:', error);
       throw new BadRequestException('Failed to upload video');
     }
   }
@@ -46,22 +55,40 @@ export class BunnyService {
       const fileName = this.generateFileName(file.originalname, 'document');
       const uploadPath = `documents/${fileName}`;
 
+      console.log('📄 Uploading file:', uploadPath); // ← Debug log
+
       // Subir archivo a Bunny.net Storage
       await this.uploadToBunnyStorage(uploadPath, file.buffer, file.mimetype);
 
       // Retornar la URL pública del CDN
-      return `${this.cdnUrl}/${uploadPath}`;
+      const publicUrl = `${this.cdnUrl}/${uploadPath}`;
+      console.log('✅ File uploaded, public URL:', publicUrl); // ← Debug log
+
+      return publicUrl;
     } catch (error) {
-      console.error('Error uploading file to Bunny.net:', error);
+      console.error('❌ Error uploading file to Bunny.net:', error);
       throw new BadRequestException('Failed to upload file');
     }
   }
 
-  // Eliminar archivo de Bunny.net Storage
+  // ← NUEVO: Método para verificar que el CDN esté funcionando
+  async testCdnConnection(): Promise<boolean> {
+    try {
+      // Intentar hacer un HEAD request al CDN
+      const response = await axios.head(this.cdnUrl, { timeout: 5000 });
+      console.log('✅ CDN connection test passed:', response.status);
+      return true;
+    } catch (error) {
+      console.error('❌ CDN connection test failed:', error.message);
+      return false;
+    }
+  }
+
+  // Resto del código permanece igual...
   async deleteFile(fileUrl: string): Promise<boolean> {
     try {
-      // Extraer el path del archivo desde la URL
       const filePath = this.extractPathFromUrl(fileUrl);
+      console.log('🗑️ Deleting file:', filePath); // ← Debug log
 
       const response = await axios.delete(
         `${this.storageApiUrl}/${process.env.BUNNY_STORAGE_ZONE}/${filePath}`,
@@ -72,9 +99,11 @@ export class BunnyService {
         },
       );
 
-      return response.status === 200;
+      const success = response.status === 200;
+      console.log(success ? '✅ File deleted' : '❌ Delete failed:', filePath);
+      return success;
     } catch (error) {
-      console.error('Error deleting file from Bunny.net:', error);
+      console.error('❌ Error deleting file from Bunny.net:', error);
       return false;
     }
   }
@@ -85,25 +114,26 @@ export class BunnyService {
     buffer: Buffer,
     mimeType: string,
   ): Promise<void> {
-    const response = await axios.put(
-      `${this.storageApiUrl}/${process.env.BUNNY_STORAGE_ZONE}/${path}`,
-      buffer,
-      {
-        headers: {
-          AccessKey: process.env.BUNNY_STORAGE_PASSWORD,
-          'Content-Type': mimeType,
-        },
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
+    const uploadUrl = `${this.storageApiUrl}/${process.env.BUNNY_STORAGE_ZONE}/${path}`;
+    console.log('📤 Upload URL:', uploadUrl); // ← Debug log
+
+    const response = await axios.put(uploadUrl, buffer, {
+      headers: {
+        AccessKey: process.env.BUNNY_STORAGE_PASSWORD,
+        'Content-Type': mimeType,
       },
-    );
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+    });
 
     if (response.status !== 201) {
       throw new Error(`Upload failed with status ${response.status}`);
     }
+
+    console.log('✅ Upload successful to storage'); // ← Debug log
   }
 
-  // Generar nombre único para el archivo
+  // Resto de métodos permanecen iguales...
   private generateFileName(
     originalName: string,
     type: 'video' | 'document',
@@ -115,20 +145,19 @@ export class BunnyService {
     return `${type}-${timestamp}-${randomString}.${extension}`;
   }
 
-  // Extraer path del archivo desde la URL del CDN
   private extractPathFromUrl(fileUrl: string): string {
-    // Ejemplo: https://aula-virtual.b-cdn.net/videos/video-123.mp4 -> videos/video-123.mp4
     return fileUrl.replace(`${this.cdnUrl}/`, '');
   }
 
-  // Validar configuración de Bunny.net
   isConfigured(): boolean {
     return !!(
-      process.env.BUNNY_STORAGE_PASSWORD && process.env.BUNNY_STORAGE_ZONE
+      process.env.BUNNY_STORAGE_PASSWORD &&
+      process.env.BUNNY_STORAGE_ZONE &&
+      process.env.BUNNY_CDN_URL
     );
   }
 
-  // Obtener información del archivo
+  // Resto de métodos permanecen iguales...
   async getFileInfo(fileUrl: string): Promise<any> {
     try {
       const filePath = this.extractPathFromUrl(fileUrl);
@@ -152,7 +181,7 @@ export class BunnyService {
       return { exists: false };
     }
   }
-  // Obtener metadatos de un archivo
+
   async getFileMetadata(fileUrl: string): Promise<any> {
     try {
       const filePath = this.extractPathFromUrl(fileUrl);
@@ -178,23 +207,18 @@ export class BunnyService {
     }
   }
 
-  // Validar que un archivo existe en Bunny.net
   async validateFileExists(fileUrl: string): Promise<boolean> {
     const metadata = await this.getFileMetadata(fileUrl);
     return metadata.exists;
   }
 
-  // Obtener URL firmada para descarga directa (opcional)
   generateSecureDownloadUrl(
     fileUrl: string,
     expirationMinutes: number = 60,
   ): string {
-    // Para implementación futura con URLs firmadas
-    // Por ahora retorna la URL directa
     return fileUrl;
   }
 
-  // Listar archivos en un directorio
   async listFiles(directory: string = ''): Promise<any[]> {
     try {
       const response = await axios.get(
