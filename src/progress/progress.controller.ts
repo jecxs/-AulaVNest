@@ -24,12 +24,6 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RoleName } from '@prisma/client';
-import {
-  LessonViewDto,
-  NavigationDto,
-  StartLessonDto,
-  VideoProgressDto,
-} from './dto/lesson-tracking.dto';
 
 @Controller('progress')
 export class ProgressController {
@@ -37,55 +31,7 @@ export class ProgressController {
 
   // ========== PROGRESS CREATION ==========
 
-  // POST /progress/start-lesson - Solo registrar inicio (sin crear progress aún)
-  @Post('start-lesson')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.OK)
-  async startLesson(
-    @Body() startLessonDto: StartLessonDto,
-    @CurrentUser() user: any,
-  ) {
-    return this.progressService.startLessonSession(
-      user.id,
-      startLessonDto.lessonId,
-    );
-  }
 
-  // POST /progress/video-checkpoint - Solo para videos al llegar a 85%
-  @Post('video-checkpoint')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.OK)
-  async videoCheckpoint(
-    @Body() videoProgressDto: VideoProgressDto,
-    @CurrentUser() user: any,
-  ) {
-    return this.progressService.handleVideoCheckpoint(
-      user.id,
-      videoProgressDto,
-    );
-  }
-  // POST /progress/lesson-exit - Al salir de lección (texto/PDF)
-  @Post('lesson-exit')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.OK)
-  async lessonExit(@Body() viewDto: LessonViewDto, @CurrentUser() user: any) {
-    return this.progressService.handleLessonExit(user.id, viewDto);
-  }
-
-  // POST /progress/navigate - Al navegar entre lecciones
-  @Post('navigate')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.OK)
-  async handleNavigation(
-    @Body() navigationDto: NavigationDto,
-    @CurrentUser() user: any,
-  ) {
-    return this.progressService.handleLessonNavigation(
-      user.id,
-      navigationDto.fromLessonId,
-      navigationDto.toLessonId,
-    );
-  }
 
   // POST /progress - Crear progress directo (Solo ADMIN)
   @Post()
@@ -351,15 +297,4 @@ export class ProgressController {
     return this.progressService.remove(id);
   }
 
-  // POST /progress/auto-complete-video/:lessonId - Auto-completar lesson de video
-  @Post('auto-complete-video/:lessonId')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.OK)
-  async autoCompleteVideoLesson(
-    @Param('lessonId') lessonId: string,
-    @CurrentUser() user: any,
-  ) {
-    // Solo para lessons de tipo VIDEO que el usuario ha "visto"
-    return this.progressService.autoCompleteVideoLesson(user.id, lessonId);
-  }
 }
