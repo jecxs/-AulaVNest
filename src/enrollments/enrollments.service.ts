@@ -374,19 +374,56 @@ export class EnrollmentsService {
           },
 
           course: {
+
             select: {
+
               id: true,
 
               title: true,
 
               slug: true,
 
+              summary: true,
+
+              description: true,
+
               price: true,
 
               level: true,
 
+              thumbnailUrl: true,
+
+              estimatedHours: true,
+
               category: {
+
                 select: { name: true, slug: true },
+
+              },
+
+              instructor: {
+
+                select: {
+
+                  id: true,
+
+                  firstName: true,
+
+                  lastName: true,
+
+                },
+
+              },
+
+              _count: {
+
+                select: {
+
+                  modules: true,
+
+                  enrollments: true,
+
+                },
               },
             },
           },
@@ -523,13 +560,61 @@ export class EnrollmentsService {
         },
 
         course: {
+
           select: {
+
             id: true,
 
             title: true,
 
+            slug: true,
+
+            summary: true,
+
+            description: true,
+
             price: true,
+
+            level: true,
+
+            thumbnailUrl: true,
+
+            estimatedHours: true,
+
+            category: {
+
+              select: { name: true, slug: true },
+
+            },
+
+            instructor: {
+
+              select: {
+
+                id: true,
+
+                firstName: true,
+
+                lastName: true,
+
+              },
+
+            },
+
+            _count: {
+
+              select: {
+
+                modules: true,
+
+                enrollments: true,
+
+              },
+
+            },
+
           },
+
         },
       },
 
@@ -695,12 +780,18 @@ export class EnrollmentsService {
         },
 
         course: {
+
           select: {
+
             id: true,
 
             title: true,
 
             slug: true,
+
+            summary: true,
+
+            description: true,
 
             price: true,
 
@@ -708,10 +799,44 @@ export class EnrollmentsService {
 
             status: true,
 
+            thumbnailUrl: true,
+
+            estimatedHours: true,
+
             category: {
-              select: { name: true },
+
+              select: { name: true, slug: true },
+
             },
+
+            instructor: {
+
+              select: {
+
+                id: true,
+
+                firstName: true,
+
+                lastName: true,
+
+              },
+
+            },
+
+            _count: {
+
+              select: {
+
+                modules: true,
+
+                enrollments: true,
+
+              },
+
+            },
+
           },
+
         },
 
         enrolledBy: {

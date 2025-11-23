@@ -65,7 +65,5 @@ export interface EnrollmentWithProgress {
     lastName: string;
   };
 
-  // ✅ CAMPO CRÍTICO: El progreso debe estar aquí
-
   progress: EnrollmentProgress;
 }
