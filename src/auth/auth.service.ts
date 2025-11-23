@@ -81,7 +81,7 @@ export class AuthService {
       isActive: user.status === 'ACTIVE', // ✅ Usar 'status' en lugar de 'isActive'
       createdAt: user.createdAt,
       updatedAt: user.createdAt, // ✅ No existe updatedAt en tu schema, usar createdAt
-      roles: userRoles.map(role => ({
+      roles: userRoles.map((role) => ({
         id: role.id,
         name: role.name,
         description: '', // ✅ No tienes description en tu schema, usar string vacío

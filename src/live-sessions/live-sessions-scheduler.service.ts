@@ -61,7 +61,9 @@ export class LiveSessionsSchedulerService {
 
       // Procesar cada sesión próxima
       for (const session of upcomingSessions) {
-        console.log(`📺 Processing session: ${session.topic} - ${session.startsAt}`);
+        console.log(
+          `📺 Processing session: ${session.topic} - ${session.startsAt}`,
+        );
 
         // Verificar si ya enviamos notificaciones para esta sesión
         const existingNotifications = await this.prisma.notification.count({
@@ -75,7 +77,9 @@ export class LiveSessionsSchedulerService {
         });
 
         if (existingNotifications > 0) {
-          console.log(`⏭️  Notifications already sent for session ${session.id}`);
+          console.log(
+            `⏭️  Notifications already sent for session ${session.id}`,
+          );
           continue;
         }
 
@@ -107,7 +111,9 @@ export class LiveSessionsSchedulerService {
         );
       }
 
-      console.log(`🎉 Total live session notifications sent: ${totalNotifications}`);
+      console.log(
+        `🎉 Total live session notifications sent: ${totalNotifications}`,
+      );
     } catch (error) {
       console.error('❌ Error checking upcoming sessions:', error);
     }
@@ -171,13 +177,15 @@ export class LiveSessionsSchedulerService {
     return {
       currentTime: now,
       sessionsFound: upcomingSessions.length,
-      sessions: upcomingSessions.map(session => ({
+      sessions: upcomingSessions.map((session) => ({
         id: session.id,
         topic: session.topic,
         startsAt: session.startsAt,
         courseName: session.course.title,
         enrolledStudents: session.course._count.enrollments,
-        minutesUntilStart: Math.floor((session.startsAt.getTime() - now.getTime()) / (1000 * 60)),
+        minutesUntilStart: Math.floor(
+          (session.startsAt.getTime() - now.getTime()) / (1000 * 60),
+        ),
       })),
     };
   }

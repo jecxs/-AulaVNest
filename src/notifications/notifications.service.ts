@@ -116,12 +116,15 @@ export class NotificationsService {
         courseName: sessionData.courseName,
         meetingUrl: sessionData.meetingUrl,
         minutesUntilStart: Math.floor(
-          (new Date(sessionData.startsAt).getTime() - new Date().getTime()) / (1000 * 60)
+          (new Date(sessionData.startsAt).getTime() - new Date().getTime()) /
+            (1000 * 60),
         ),
       },
     });
   }
-  async hasLiveSessionNotificationBeenSent(sessionId: string): Promise<boolean> {
+  async hasLiveSessionNotificationBeenSent(
+    sessionId: string,
+  ): Promise<boolean> {
     const count = await this.prisma.notification.count({
       where: {
         type: NotificationType.LIVE_SESSION_REMINDER,
@@ -327,5 +330,4 @@ export class NotificationsService {
       deletedCount: result.count,
     };
   }
-
 }

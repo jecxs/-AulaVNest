@@ -15,7 +15,6 @@ import { QueryResourcesDto } from './dto/query-resources.dto';
 import * as AdmZip from 'adm-zip';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
 
-
 @Injectable()
 export class ResourcesService {
   constructor(

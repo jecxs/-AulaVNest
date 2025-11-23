@@ -1,65 +1,71 @@
-// enrollments/dto/enrollment-response.dto.ts - CORREGIDO
-import { Course, CourseCategory, Enrollment, User } from '@prisma/client';
+// enrollments/dto/enrollment-response.dto.ts
 
-export type EnrollmentWithRelations = Enrollment & {
-  user?: Pick<User, 'id' | 'email' | 'firstName' | 'lastName' | 'phone'>;
-  course?: Pick<
-    Course,
-    'id' | 'title' | 'slug' | 'price' | 'level' | 'status'
-  > & {
-    category: Pick<CourseCategory, 'name'>;
-  };
-  enrolledBy?: Pick<User, 'id' | 'email' | 'firstName' | 'lastName'>;
-};
+import { EnrollmentStatus } from '@prisma/client';
 
-export class EnrollmentResponseDto {
-  id: string;
-  status: string;
-  paymentConfirmed: boolean;
-  enrolledAt: Date;
-  expiresAt?: Date;
-  userId: string;
-  courseId: string;
-  enrolledById: string;
+export interface EnrollmentProgress {
+  totalLessons: number;
+
+  completedLessons: number;
+
+  completionPercentage: number;
 }
 
-export class EnrollmentWithDetailsDto extends EnrollmentResponseDto {
+export interface EnrollmentWithProgress {
+  id: string;
+
+  userId: string;
+
+  courseId: string;
+
+  enrolledById: string;
+
+  status: EnrollmentStatus;
+
+  paymentConfirmed: boolean;
+
+  enrolledAt: Date | string;
+
+  expiresAt?: Date | string | null;
+
   user: {
     id: string;
+
     email: string;
+
     firstName: string;
+
     lastName: string;
-    phone?: string | null; // 👈 CORREGIDO: Permitir null
+
+    phone: string | null;
   };
+
   course: {
     id: string;
+
     title: string;
+
     slug: string;
-    price?: number | null; // 👈 CORREGIDO: Permitir null
+
+    price: number | null;
+
     level: string;
-    status: string;
+
     category: {
       name: string;
     };
   };
+
   enrolledBy: {
     id: string;
+
     email: string;
+
     firstName: string;
+
     lastName: string;
   };
-  progress?: {
-    completedLessons: number;
-    totalLessons: number;
-    completionPercentage: number;
-  };
-}
 
-// 👈 CORREGIDO: Tipo para enrollment con progress
-export type EnrollmentWithProgress = EnrollmentWithRelations & {
-  progress?: {
-    completedLessons: number;
-    totalLessons: number;
-    completionPercentage: number;
-  };
-};
+  // ✅ CAMPO CRÍTICO: El progreso debe estar aquí
+
+  progress: EnrollmentProgress;
+}
