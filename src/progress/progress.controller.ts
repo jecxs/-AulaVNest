@@ -1,4 +1,4 @@
-// progress/progress.controller.ts - CORREGIDO
+// progress/progress.controller.ts - SIMPLIFICADO
 import {
   Controller,
   Get,
@@ -7,7 +7,6 @@ import {
   Patch,
   Param,
   Delete,
-  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -15,10 +14,7 @@ import {
 } from '@nestjs/common';
 import { ProgressService } from './progress.service';
 import { CreateProgressDto } from './dto/create-progress.dto';
-import { MarkLessonCompleteDto } from './dto/mark-lesson-complete.dto'; // ← CORREGIDO: Eliminar punto y coma extra
-import { BulkProgressDto } from './dto/bulk-progress.dto';
-import { UpdateProgressDto } from './dto/update-progress.dto';
-import { QueryProgressDto } from './dto/query-progress.dto';
+import { MarkLessonCompleteDto } from './dto/mark-lesson-complete.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -29,23 +25,13 @@ import { RoleName } from '@prisma/client';
 export class ProgressController {
   constructor(private readonly progressService: ProgressService) {}
 
-  // ========== PROGRESS CREATION ==========
+  // ========== ENDPOINTS PARA ESTUDIANTES ==========
 
-
-
-  // POST /progress - Crear progress directo (Solo ADMIN)
-  @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleName.ADMIN)
-  @HttpCode(HttpStatus.CREATED)
-  async create(
-    @Body() createProgressDto: CreateProgressDto,
-    @CurrentUser() user: any,
-  ) {
-    return this.progressService.create(createProgressDto);
-  }
-
-  // POST /progress/mark-complete - Marcar lesson como completada (Estudiante)
+  /**
+   * POST /progress/mark-complete
+   * Marcar lección como completada - ENDPOINT PRINCIPAL
+   * El estudiante hace click en "Completar y Continuar" y llama este endpoint
+   */
   @Post('mark-complete')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
@@ -59,94 +45,20 @@ export class ProgressController {
     );
   }
 
-  // POST /progress/bulk - Marcar múltiples lessons como completadas (Solo ADMIN)
-  @Post('bulk')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleName.ADMIN)
-  @HttpCode(HttpStatus.CREATED)
-  async bulkMarkComplete(
-    @Body() bulkProgressDto: BulkProgressDto,
-    @CurrentUser() user: any,
-  ) {
-    return this.progressService.bulkMarkComplete(bulkProgressDto);
-  }
-
-  // ========== PROGRESS QUERIES ==========
-
-  // GET /progress - Listar progress con filtros (Solo ADMIN)
-  @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleName.ADMIN)
-  async findAll(@Query() query: QueryProgressDto) {
-    return this.progressService.findAll(query);
-  }
-
-  // GET /progress/my-progress - Progreso del usuario actual
+  /**
+   * GET /progress/my-progress
+   * Obtener resumen completo del progreso del estudiante
+   */
   @Get('my-progress')
   @UseGuards(JwtAuthGuard)
-  async getMyProgress(
-    @CurrentUser() user: any,
-    @Query() query: QueryProgressDto,
-  ) {
-    return this.progressService.getUserProgress(user.id, query);
+  async getMyProgress(@CurrentUser() user: any) {
+    return this.progressService.getUserProgressSummary(user.id);
   }
 
-  // GET /progress/stats - Estadísticas generales de progress (Solo ADMIN)
-  @Get('stats')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleName.ADMIN)
-  async getStats() {
-    return this.progressService.getProgressStats();
-  }
-
-  // ========== PROGRESS BY USER/COURSE/LESSON ==========
-
-  // GET /progress/user/:userId - Progress de un usuario específico (Solo ADMIN)
-  @Get('user/:userId')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleName.ADMIN)
-  async getUserProgress(
-    @Param('userId') userId: string,
-    @Query() query: QueryProgressDto,
-  ) {
-    return this.progressService.getUserProgress(userId, query);
-  }
-
-  // GET /progress/user/:userId/summary - Resumen completo del usuario
-  @Get('user/:userId/summary')
-  @UseGuards(JwtAuthGuard)
-  async getUserProgressSummary(
-    @Param('userId') userId: string,
-    @CurrentUser() user: any,
-  ) {
-    // Solo admin o el propio usuario puede ver el resumen
-    if (!user.roles.includes(RoleName.ADMIN) && user.id !== userId) {
-      throw new BadRequestException('You can only view your own progress');
-    }
-
-    return this.progressService.getUserProgressSummary(userId);
-  }
-
-  // GET /progress/course/:courseId - Progress de un curso específico (Solo ADMIN)
-  @Get('course/:courseId')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleName.ADMIN)
-  async getCourseProgress(
-    @Param('courseId') courseId: string,
-    @Query() query: QueryProgressDto,
-  ) {
-    return this.progressService.getCourseProgress(courseId, query);
-  }
-
-  // GET /progress/course/:courseId/summary - Resumen del curso
-  @Get('course/:courseId/summary')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleName.ADMIN)
-  async getCourseProgressSummary(@Param('courseId') courseId: string) {
-    return this.progressService.getCourseProgressSummary(courseId);
-  }
-
-  // GET /progress/my-course/:courseId - Mi progreso en un curso específico
+  /**
+   * GET /progress/my-course/:courseId
+   * Obtener progreso del estudiante en un curso específico
+   */
   @Get('my-course/:courseId')
   @UseGuards(JwtAuthGuard)
   async getMyCourseProgress(
@@ -156,27 +68,10 @@ export class ProgressController {
     return this.progressService.getUserCourseProgress(user.id, courseId);
   }
 
-  // GET /progress/lesson/:lessonId - Progress de una lesson específica (Solo ADMIN)
-  @Get('lesson/:lessonId')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleName.ADMIN)
-  async getLessonProgress(@Param('lessonId') lessonId: string) {
-    return this.progressService.getLessonProgressStats(lessonId);
-  }
-
-  // GET /progress/enrollment/:enrollmentId - Progress de un enrollment específico
-  @Get('enrollment/:enrollmentId')
-  @UseGuards(JwtAuthGuard)
-  async getEnrollmentProgress(
-    @Param('enrollmentId') enrollmentId: string,
-    @CurrentUser() user: any,
-  ) {
-    return this.progressService.getEnrollmentProgress(enrollmentId, user);
-  }
-
-  // ========== PROGRESS VERIFICATION ==========
-
-  // GET /progress/check/:lessonId - Verificar si lesson está completada
+  /**
+   * GET /progress/check/:lessonId
+   * Verificar si una lección está completada
+   */
   @Get('check/:lessonId')
   @UseGuards(JwtAuthGuard)
   async checkLessonProgress(
@@ -186,7 +81,10 @@ export class ProgressController {
     return this.progressService.checkLessonProgress(user.id, lessonId);
   }
 
-  // GET /progress/next-lesson/:courseId - Obtener siguiente lesson por completar
+  /**
+   * GET /progress/next-lesson/:courseId
+   * Obtener siguiente lección por completar en un curso
+   */
   @Get('next-lesson/:courseId')
   @UseGuards(JwtAuthGuard)
   async getNextLesson(
@@ -196,15 +94,42 @@ export class ProgressController {
     return this.progressService.getNextLessonToComplete(user.id, courseId);
   }
 
-  // ========== INDIVIDUAL PROGRESS OPERATIONS ==========
+  /**
+   * GET /progress/module/:moduleId
+   * Obtener progreso detallado de un módulo
+   */
+  @Get('module/:moduleId')
+  @UseGuards(JwtAuthGuard)
+  async getModuleProgress(
+    @Param('moduleId') moduleId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.progressService.getModuleProgress(user.id, moduleId);
+  }
 
-  // GET /progress/:id - Obtener progress por ID
+  // ========== ENDPOINTS PARA ADMIN (CORRECCIONES) ==========
+
+  /**
+   * POST /progress
+   * Crear progreso manualmente (solo para correcciones)
+   */
+  @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RoleName.ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  async create(@Body() createProgressDto: CreateProgressDto) {
+    return this.progressService.create(createProgressDto);
+  }
+
+  /**
+   * GET /progress/:id
+   * Obtener progress por ID (admin o propio estudiante)
+   */
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   async findOne(@Param('id') id: string, @CurrentUser() user: any) {
     const progress = await this.progressService.findOne(id);
 
-    // ← CORREGIDO: Verificar acceso usando el enrollmentId para obtener el user
     const enrollment = await this.progressService.getProgressEnrollment(
       progress.enrollmentId,
     );
@@ -216,18 +141,10 @@ export class ProgressController {
     return progress;
   }
 
-  // PATCH /progress/:id - Actualizar progress (Solo ADMIN)
-  @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleName.ADMIN)
-  async update(
-    @Param('id') id: string,
-    @Body() updateProgressDto: UpdateProgressDto,
-  ) {
-    return this.progressService.update(id, updateProgressDto);
-  }
-
-  // PATCH /progress/:id/mark-incomplete - Marcar lesson como no completada
+  /**
+   * PATCH /progress/:id/mark-incomplete
+   * Marcar lección como no completada (solo admin, para correcciones)
+   */
   @Patch(':id/mark-incomplete')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleName.ADMIN)
@@ -236,35 +153,10 @@ export class ProgressController {
     return this.progressService.markLessonIncomplete(id);
   }
 
-  // ========== PROGRESS ANALYTICS ==========
-
-  // GET /progress/analytics/completion-rates - Tasas de finalización por curso
-  @Get('analytics/completion-rates')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleName.ADMIN)
-  async getCompletionRates() {
-    return this.progressService.getCompletionRatesByourse();
-  }
-
-  // GET /progress/analytics/student-performance - Rendimiento de estudiantes
-  @Get('analytics/student-performance')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleName.ADMIN)
-  async getStudentPerformance(@Query('courseId') courseId?: string) {
-    return this.progressService.getStudentPerformanceAnalytics(courseId);
-  }
-
-  // GET /progress/analytics/lesson-difficulty - Análisis de dificultad por lesson
-  @Get('analytics/lesson-difficulty')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleName.ADMIN)
-  async getLessonDifficulty(@Query('courseId') courseId?: string) {
-    return this.progressService.getLessonDifficultyAnalysis(courseId);
-  }
-
-  // ========== PROGRESS MANAGEMENT ==========
-
-  // POST /progress/reset-course/:courseId/:userId - Resetear progreso de curso
+  /**
+   * POST /progress/reset-course/:courseId/:userId
+   * Resetear todo el progreso de un curso (solo admin)
+   */
   @Post('reset-course/:courseId/:userId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleName.ADMIN)
@@ -276,7 +168,10 @@ export class ProgressController {
     return this.progressService.resetCourseProgress(userId, courseId);
   }
 
-  // POST /progress/reset-lesson/:lessonId/:userId - Resetear progreso de lesson
+  /**
+   * POST /progress/reset-lesson/:lessonId/:userId
+   * Resetear progreso de una lección específica (solo admin)
+   */
   @Post('reset-lesson/:lessonId/:userId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleName.ADMIN)
@@ -288,7 +183,10 @@ export class ProgressController {
     return this.progressService.resetLessonProgress(userId, lessonId);
   }
 
-  // DELETE /progress/:id - Eliminar progress (Solo ADMIN)
+  /**
+   * DELETE /progress/:id
+   * Eliminar progress (solo admin, para correcciones)
+   */
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleName.ADMIN)
@@ -296,5 +194,4 @@ export class ProgressController {
   async remove(@Param('id') id: string) {
     return this.progressService.remove(id);
   }
-
 }
