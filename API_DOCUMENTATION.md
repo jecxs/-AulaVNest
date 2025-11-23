@@ -1,8 +1,8 @@
 # 📚 Documentación de APIs - Aula Virtual
 
-> **Versión**: 1.0
+> **Versión**: 2.0
 > **Base URL**: `http://localhost:3000`
-> **Última actualización**: 2025-11-22
+> **Última actualización**: 2025-11-23
 
 ## 📋 Tabla de Contenidos
 
@@ -354,6 +354,32 @@ Inicializar roles por defecto (ADMIN, STUDENT).
 
 ---
 
+### GET `/roles/:id`
+Obtener rol por ID con usuarios asignados.
+
+**Permisos**: ADMIN
+
+**Parámetros URL**: `id` (string)
+
+**Respuesta**:
+```json
+{
+  "id": "cuid789",
+  "name": "ADMIN",
+  "users": [
+    {
+      "id": "cuid123",
+      "email": "admin@ejemplo.com",
+      "firstName": "Juan",
+      "lastName": "Pérez",
+      "status": "ACTIVE"
+    }
+  ]
+}
+```
+
+---
+
 ### POST `/roles/assign`
 Asignar rol a usuario.
 
@@ -414,7 +440,19 @@ Obtener todos los administradores.
 
 **Permisos**: ADMIN
 
-**Respuesta**: Lista de usuarios con rol ADMIN
+**Respuesta**:
+```json
+[
+  {
+    "id": "cuid123",
+    "email": "admin@ejemplo.com",
+    "firstName": "Juan",
+    "lastName": "Pérez",
+    "status": "ACTIVE",
+    "roles": [{ "id": "", "name": "ADMIN" }]
+  }
+]
+```
 
 ---
 
@@ -423,7 +461,67 @@ Obtener todos los estudiantes.
 
 **Permisos**: ADMIN
 
-**Respuesta**: Lista de usuarios con rol STUDENT
+**Respuesta**:
+```json
+[
+  {
+    "id": "cuid456",
+    "email": "estudiante@ejemplo.com",
+    "firstName": "María",
+    "lastName": "González",
+    "status": "ACTIVE",
+    "roles": [{ "id": "", "name": "STUDENT" }]
+  }
+]
+```
+
+---
+
+### GET `/roles/user/:userId/is-admin`
+Verificar si un usuario es administrador.
+
+**Permisos**: ADMIN
+
+**Parámetros URL**: `userId` (string)
+
+**Respuesta**:
+```json
+{
+  "isAdmin": true
+}
+```
+
+---
+
+### GET `/roles/user/:userId/is-student`
+Verificar si un usuario es estudiante.
+
+**Permisos**: ADMIN
+
+**Parámetros URL**: `userId` (string)
+
+**Respuesta**:
+```json
+{
+  "isStudent": true
+}
+```
+
+---
+
+### GET `/roles/user/:userId/names`
+Obtener nombres de roles de un usuario (útil para autenticación).
+
+**Permisos**: ADMIN
+
+**Parámetros URL**: `userId` (string)
+
+**Respuesta**:
+```json
+{
+  "roles": ["ADMIN", "STUDENT"]
+}
+```
 
 ---
 
@@ -525,6 +623,15 @@ Estadísticas de categorías.
   "categoriesWithCourses": 7
 }
 ```
+
+---
+
+### GET `/course-categories/without-courses`
+Categorías sin cursos asignados.
+
+**Permisos**: ADMIN
+
+**Respuesta**: Lista de categorías que no tienen cursos
 
 ---
 
@@ -686,6 +793,38 @@ Estadísticas de instructores.
   "instructorsWithoutCourses": 5
 }
 ```
+
+---
+
+### GET `/instructors/without-courses`
+Instructores sin cursos asignados.
+
+**Permisos**: ADMIN
+
+**Respuesta**: Lista de instructores que no tienen cursos
+
+---
+
+### GET `/instructors/top`
+Top instructores por número de cursos.
+
+**Permisos**: ADMIN
+
+**Query Params** (opcionales):
+- `limit`: number (default: 5)
+
+**Respuesta**: Lista de instructores ordenados por cantidad de cursos
+
+---
+
+### GET `/instructors/specialization/:specialization`
+Instructores filtrados por especialización.
+
+**Permisos**: Público
+
+**Parámetros URL**: `specialization` (string)
+
+**Respuesta**: Lista de instructores con esa especialización
 
 ---
 
@@ -1007,6 +1146,15 @@ Estadísticas de módulos.
   "modulesWithoutContent": 5
 }
 ```
+
+---
+
+### GET `/modules/without-content`
+Módulos sin contenido (sin lecciones ni quizzes).
+
+**Permisos**: ADMIN
+
+**Respuesta**: Lista de módulos que no tienen contenido
 
 ---
 
@@ -2468,36 +2616,10 @@ Limpiar enrollments expirados.
 
 ## 13. 📊 Progress
 
-### POST `/progress`
-Crear progress directo.
-
-**Permisos**: ADMIN
-
-**Body**:
-```json
-{
-  "enrollmentId": "cuid020",
-  "lessonId": "cuid005",
-  "completedAt": "2024-01-01T12:00:00.000Z",
-  "score": 95
-}
-```
-
-**Respuesta**:
-```json
-{
-  "id": "cuid030",
-  "enrollmentId": "cuid020",
-  "lessonId": "cuid005",
-  "completedAt": "2024-01-01T12:00:00.000Z",
-  "score": 95
-}
-```
-
----
+**⚠️ Nota**: Este módulo ha sido simplificado. Se eliminaron endpoints de analytics y estadísticas complejas.
 
 ### POST `/progress/mark-complete`
-Marcar lección como completada (para estudiantes).
+Marcar lección como completada - ENDPOINT PRINCIPAL para estudiantes.
 
 **Permisos**: Autenticado
 
@@ -2514,119 +2636,12 @@ Marcar lección como completada (para estudiantes).
 
 ---
 
-### POST `/progress/bulk`
-Marcar múltiples lecciones como completadas.
-
-**Permisos**: ADMIN
-
-**Body**:
-```json
-{
-  "enrollmentId": "cuid020",
-  "lessonIds": ["cuid005", "cuid006", "cuid007"]
-}
-```
-
-**Respuesta**:
-```json
-{
-  "created": 3,
-  "progress": [...]
-}
-```
-
----
-
-### GET `/progress`
-Listar progress con filtros.
-
-**Permisos**: ADMIN
-
-**Query Params** (opcionales):
-- `enrollmentId`: string
-- `lessonId`: string
-- `completed`: boolean
-
-**Respuesta**: Lista de progress
-
----
-
 ### GET `/progress/my-progress`
-Progreso del usuario actual.
+Resumen completo del progreso del estudiante autenticado.
 
 **Permisos**: Autenticado
 
-**Respuesta**: Progress del usuario autenticado
-
----
-
-### GET `/progress/stats`
-Estadísticas generales de progress.
-
-**Permisos**: ADMIN
-
-**Respuesta**:
-```json
-{
-  "totalProgress": 5000,
-  "completedLessons": 4500,
-  "averageScore": 87
-}
-```
-
----
-
-### GET `/progress/user/:userId`
-Progress de un usuario específico.
-
-**Permisos**: ADMIN
-
-**Parámetros URL**: `userId` (string)
-
-**Respuesta**: Lista de progress del usuario
-
----
-
-### GET `/progress/user/:userId/summary`
-Resumen completo del progreso del usuario.
-
-**Permisos**: ADMIN o el propio usuario
-
-**Parámetros URL**: `userId` (string)
-
-**Respuesta**:
-```json
-{
-  "totalCourses": 5,
-  "completedCourses": 2,
-  "inProgressCourses": 3,
-  "totalLessons": 100,
-  "completedLessons": 65,
-  "overallProgress": 65
-}
-```
-
----
-
-### GET `/progress/course/:courseId`
-Progress de un curso específico.
-
-**Permisos**: ADMIN
-
-**Parámetros URL**: `courseId` (string)
-
-**Respuesta**: Progress de todos los estudiantes en el curso
-
----
-
-### GET `/progress/course/:courseId/summary`
-Resumen del progreso del curso.
-
-**Permisos**: ADMIN
-
-**Parámetros URL**: `courseId` (string)
-
-**Respuesta**: Estadísticas agregadas del curso
+**Respuesta**: Resumen de progreso del usuario
 
 ---
 
@@ -2656,30 +2671,8 @@ Mi progreso en un curso específico.
 
 ---
 
-### GET `/progress/lesson/:lessonId`
-Progress de una lección específica (todos los estudiantes).
-
-**Permisos**: ADMIN
-
-**Parámetros URL**: `lessonId` (string)
-
-**Respuesta**: Estadísticas de progreso de la lección
-
----
-
-### GET `/progress/enrollment/:enrollmentId`
-Progress de un enrollment específico.
-
-**Permisos**: ADMIN o el propio usuario
-
-**Parámetros URL**: `enrollmentId` (string)
-
-**Respuesta**: Progress del enrollment
-
----
-
 ### GET `/progress/check/:lessonId`
-Verificar si lección está completada.
+Verificar si una lección está completada.
 
 **Permisos**: Autenticado
 
@@ -2697,7 +2690,7 @@ Verificar si lección está completada.
 ---
 
 ### GET `/progress/next-lesson/:courseId`
-Obtener siguiente lección por completar.
+Obtener siguiente lección por completar en un curso.
 
 **Permisos**: Autenticado
 
@@ -2716,6 +2709,45 @@ Obtener siguiente lección por completar.
 
 ---
 
+### GET `/progress/module/:moduleId`
+Obtener progreso detallado de un módulo.
+
+**Permisos**: Autenticado
+
+**Parámetros URL**: `moduleId` (string)
+
+**Respuesta**: Progreso del módulo con lecciones completadas
+
+---
+
+### POST `/progress`
+Crear progress manualmente (solo para correcciones).
+
+**Permisos**: ADMIN
+
+**Body**:
+```json
+{
+  "enrollmentId": "cuid020",
+  "lessonId": "cuid005",
+  "completedAt": "2024-01-01T12:00:00.000Z",
+  "score": 95
+}
+```
+
+**Respuesta**:
+```json
+{
+  "id": "cuid030",
+  "enrollmentId": "cuid020",
+  "lessonId": "cuid005",
+  "completedAt": "2024-01-01T12:00:00.000Z",
+  "score": 95
+}
+```
+
+---
+
 ### GET `/progress/:id`
 Obtener progress por ID.
 
@@ -2727,27 +2759,8 @@ Obtener progress por ID.
 
 ---
 
-### PATCH `/progress/:id`
-Actualizar progress.
-
-**Permisos**: ADMIN
-
-**Parámetros URL**: `id` (string)
-
-**Body** (campos opcionales):
-```json
-{
-  "score": 98,
-  "completedAt": "2024-01-02T10:00:00.000Z"
-}
-```
-
-**Respuesta**: Progress actualizado
-
----
-
 ### PATCH `/progress/:id/mark-incomplete`
-Marcar lección como no completada.
+Marcar lección como no completada (solo admin, para correcciones).
 
 **Permisos**: ADMIN
 
@@ -2757,52 +2770,8 @@ Marcar lección como no completada.
 
 ---
 
-### GET `/progress/analytics/completion-rates`
-Tasas de finalización por curso.
-
-**Permisos**: ADMIN
-
-**Respuesta**:
-```json
-[
-  {
-    "courseId": "cuid003",
-    "courseTitle": "Desarrollo Web Full Stack",
-    "completionRate": 68.5,
-    "totalStudents": 50,
-    "completedStudents": 34
-  }
-]
-```
-
----
-
-### GET `/progress/analytics/student-performance`
-Rendimiento de estudiantes.
-
-**Permisos**: ADMIN
-
-**Query Params** (opcionales):
-- `courseId`: string
-
-**Respuesta**: Análisis de rendimiento de estudiantes
-
----
-
-### GET `/progress/analytics/lesson-difficulty`
-Análisis de dificultad por lección.
-
-**Permisos**: ADMIN
-
-**Query Params** (opcionales):
-- `courseId`: string
-
-**Respuesta**: Lecciones ordenadas por dificultad
-
----
-
 ### POST `/progress/reset-course/:courseId/:userId`
-Resetear progreso de curso.
+Resetear todo el progreso de un curso.
 
 **Permisos**: ADMIN
 
@@ -2813,7 +2782,7 @@ Resetear progreso de curso.
 ---
 
 ### POST `/progress/reset-lesson/:lessonId/:userId`
-Resetear progreso de lección.
+Resetear progreso de una lección específica.
 
 **Permisos**: ADMIN
 
@@ -2824,7 +2793,7 @@ Resetear progreso de lección.
 ---
 
 ### DELETE `/progress/:id`
-Eliminar progress.
+Eliminar progress (solo admin, para correcciones).
 
 **Permisos**: ADMIN
 
@@ -3690,5 +3659,55 @@ Para más información o reportar problemas, contacta al equipo de desarrollo.
 
 ---
 
-**Última actualización**: 2025-11-22
-**Versión de la API**: 1.0
+## 📝 Changelog
+
+### Versión 2.0 (2025-11-23)
+
+#### Módulo Progress - Simplificación Mayor
+**Endpoints eliminados**:
+- `GET /progress` - Listar todos los progress
+- `GET /progress/stats` - Estadísticas generales
+- `GET /progress/user/:userId` - Progress de usuario específico
+- `GET /progress/user/:userId/summary` - Resumen de progreso
+- `GET /progress/course/:courseId` - Progress de curso
+- `GET /progress/course/:courseId/summary` - Resumen de curso
+- `GET /progress/lesson/:lessonId` - Progress de lección
+- `GET /progress/enrollment/:enrollmentId` - Progress de enrollment
+- `POST /progress/bulk` - Marcar múltiples lecciones
+- `PATCH /progress/:id` - Actualizar progress
+- `GET /progress/analytics/completion-rates` - Analytics de finalización
+- `GET /progress/analytics/student-performance` - Analytics de rendimiento
+- `GET /progress/analytics/lesson-difficulty` - Analytics de dificultad
+
+**Endpoint nuevo**:
+- `GET /progress/module/:moduleId` - Progreso de módulo
+
+#### Módulo Roles - Mejoras y Nuevos Endpoints
+**Endpoints nuevos**:
+- `GET /roles/:id` - Obtener rol con usuarios
+- `GET /roles/user/:userId/is-admin` - Verificar si es admin
+- `GET /roles/user/:userId/is-student` - Verificar si es estudiante
+- `GET /roles/user/:userId/names` - Obtener nombres de roles
+
+**Endpoints modificados**:
+- `GET /roles/type/admins` - Ahora retorna estructura completa de usuarios
+- `GET /roles/type/students` - Ahora retorna estructura completa de usuarios
+
+#### Módulo Course Categories
+**Endpoint nuevo**:
+- `GET /course-categories/without-courses` - Categorías sin cursos
+
+#### Módulo Instructors
+**Endpoints nuevos**:
+- `GET /instructors/without-courses` - Instructores sin cursos
+- `GET /instructors/top` - Top instructores por número de cursos
+- `GET /instructors/specialization/:specialization` - Filtrar por especialización
+
+#### Módulo Modules
+**Endpoint nuevo**:
+- `GET /modules/without-content` - Módulos sin contenido
+
+---
+
+**Última actualización**: 2025-11-23
+**Versión de la API**: 2.0
