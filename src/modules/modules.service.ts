@@ -156,7 +156,6 @@ export class ModulesService {
             id: true,
             title: true,
             passingScore: true,
-            attemptsAllowed: true,
           },
         },
         _count: {
@@ -192,7 +191,6 @@ export class ModulesService {
             id: true,
             title: true,
             passingScore: true,
-            attemptsAllowed: true,
           },
         },
         _count: {

@@ -373,7 +373,7 @@ export class QuizzesService {
       },
     });
 
-    console.log(`✅ Quiz attempt saved: ${quizAttempt.id}`);
+    console.log(` Quiz attempt saved: ${quizAttempt.id}`);
 
     // 6. Emitir notificaciones
     await this.emitQuizResultNotifications(userId, quiz, {
