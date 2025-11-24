@@ -154,7 +154,6 @@ export class QuizzesService {
           id: quiz.id,
           title: quiz.title,
           passingScore: quiz.passingScore,
-          attemptsAllowed: quiz.attemptsAllowed,
           questionsCount: quiz._count.questions, // ← Ahora _count está disponible
           totalPoints: isAdmin ? totalPoints : totalPoints, // Por ahora mostramos a ambos
         };
@@ -218,7 +217,6 @@ export class QuizzesService {
       id: quiz.id,
       title: quiz.title,
       passingScore: quiz.passingScore,
-      attemptsAllowed: quiz.attemptsAllowed,
       questionsCount: quiz._count.questions, // ← Ahora _count está disponible
       totalPoints,
     };
@@ -235,7 +233,6 @@ export class QuizzesService {
       id: quiz.id,
       title: quiz.title,
       passingScore: quiz.passingScore,
-      attemptsAllowed: quiz.attemptsAllowed,
       questions,
       totalPoints: await this.calculateTotalPoints(id),
     };
@@ -246,7 +243,7 @@ export class QuizzesService {
     submitQuizDto: SubmitQuizDto,
     userId: string,
   ): Promise<QuizResultDto> {
-    // Obtener todas las preguntas del quiz CON respuestas correctas
+    // 1. Obtener todas las preguntas del quiz CON respuestas correctas
     const questions = await this.prisma.question.findMany({
       where: { quizId: submitQuizDto.quizId },
       orderBy: { order: 'asc' },
@@ -255,12 +252,11 @@ export class QuizzesService {
       },
     });
 
-    // Validar que el quiz tiene preguntas
     if (questions.length === 0) {
       throw new BadRequestException('This quiz has no questions');
     }
 
-    // Validar que todas las preguntas están respondidas
+    // 2. Validar que todas las preguntas están respondidas
     const questionIds = questions.map((q) => q.id);
     const answeredQuestionIds = submitQuizDto.answers.map((a) => a.questionId);
 
@@ -273,7 +269,7 @@ export class QuizzesService {
       );
     }
 
-    // Obtener información del quiz CON información del curso
+    // 3. Obtener información del quiz y enrollment
     const quiz = await this.prisma.quiz.findUnique({
       where: { id: submitQuizDto.quizId },
       include: {
@@ -291,7 +287,21 @@ export class QuizzesService {
       throw new NotFoundException('Quiz not found');
     }
 
-    // Calcular resultados
+    // Obtener enrollment del estudiante
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: {
+        userId_courseId: {
+          userId,
+          courseId: quiz.module.courseId,
+        },
+      },
+    });
+
+    if (!enrollment || enrollment.status !== 'ACTIVE') {
+      throw new ForbiddenException('You do not have access to this quiz');
+    }
+
+
     let totalScore = 0;
     let maxScore = 0;
     const answerResults: Array<{
@@ -313,14 +323,12 @@ export class QuizzesService {
         );
       }
 
-      // Obtener opciones correctas
       const correctOptionIds = question.answerOptions
         .filter((option) => option.isCorrect)
         .map((option) => option.id);
 
       maxScore += question.weight;
 
-      // Verificar si la respuesta es correcta
       let isCorrect = false;
       if (question.type === QuestionType.SINGLE) {
         isCorrect =
@@ -353,7 +361,24 @@ export class QuizzesService {
     const percentage = Math.round((totalScore / maxScore) * 100);
     const passed = percentage >= quiz.passingScore;
 
-    const result: QuizResultDto = {
+
+    const quizAttempt = await this.prisma.quizAttempt.create({
+      data: {
+        enrollmentId: enrollment.id,
+        quizId: quiz.id,
+        score: totalScore,
+        maxScore: maxScore,
+        percentage: percentage,
+        passed: passed,
+        answers: answerResults, // Guardar respuestas como JSON
+        submittedAt: new Date(),
+      },
+    });
+
+    console.log(`✅ Quiz attempt saved: ${quizAttempt.id}`);
+
+    // 6. Emitir notificaciones
+    await this.emitQuizResultNotifications(userId, quiz, {
       quizId: quiz.id,
       score: totalScore,
       maxScore: maxScore,
@@ -361,13 +386,140 @@ export class QuizzesService {
       passed: passed,
       answers: answerResults,
       submittedAt: new Date(),
+    });
+
+    // 7. Retornar resultado
+    return {
+      quizId: quiz.id,
+      score: totalScore,
+      maxScore: maxScore,
+      percentage: percentage,
+      passed: passed,
+      answers: answerResults,
+      submittedAt: new Date(),
+      attemptId: quizAttempt.id,
     };
-
-    // 🔔 EMITIR NOTIFICACIONES SEGÚN RESULTADO
-    await this.emitQuizResultNotifications(userId, quiz, result);
-
-    return result;
   }
+  async getUserQuizAttempts(userId: string, quizId: string) {
+    const quiz = await this.prisma.quiz.findUnique({
+      where: { id: quizId },
+      include: {
+        module: {
+          include: {
+            course: true,
+          },
+        },
+      },
+    });
+
+    if (!quiz) {
+      throw new NotFoundException('Quiz not found');
+    }
+
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: {
+        userId_courseId: {
+          userId,
+          courseId: quiz.module.courseId,
+        },
+      },
+    });
+
+    if (!enrollment) {
+      throw new ForbiddenException('You are not enrolled in this course');
+    }
+
+    // Obtener todos los intentos del usuario para este quiz
+    const attempts = await this.prisma.quizAttempt.findMany({
+      where: {
+        enrollmentId: enrollment.id,
+        quizId: quizId,
+      },
+      orderBy: {
+        submittedAt: 'desc',
+      },
+    });
+
+    // Calcular estadísticas
+    const totalAttempts = attempts.length;
+    const bestAttempt = attempts.reduce((best, current) =>
+        current.percentage > (best?.percentage || 0) ? current : best
+      , attempts[0]);
+
+    const passed = attempts.some(attempt => attempt.passed);
+
+    return {
+      quizId: quiz.id,
+      quizTitle: quiz.title,
+      passingScore: quiz.passingScore,
+      totalAttempts,
+      bestScore: bestAttempt?.score || 0,
+      bestPercentage: bestAttempt?.percentage || 0,
+      lastAttempt: attempts[0]?.submittedAt,
+      passed,
+      attempts: attempts.map(attempt => ({
+        id: attempt.id,
+        score: attempt.score,
+        maxScore: attempt.maxScore,
+        percentage: attempt.percentage,
+        passed: attempt.passed,
+        submittedAt: attempt.submittedAt,
+      })),
+    };
+  }
+  async getQuizAttemptDetail(attemptId: string, userId: string) {
+    const attempt = await this.prisma.quizAttempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        enrollment: {
+          include: {
+            user: {
+              select: { id: true, firstName: true, lastName: true },
+            },
+          },
+        },
+        quiz: {
+          include: {
+            questions: {
+              include: {
+                answerOptions: true,
+              },
+              orderBy: { order: 'asc' },
+            },
+          },
+        },
+      },
+    });
+
+    if (!attempt) {
+      throw new NotFoundException('Quiz attempt not found');
+    }
+
+    // Verificar que el usuario sea el dueño del intento
+    if (attempt.enrollment.userId !== userId) {
+      throw new ForbiddenException('You can only view your own attempts');
+    }
+
+    return {
+      id: attempt.id,
+      quizTitle: attempt.quiz.title,
+      score: attempt.score,
+      maxScore: attempt.maxScore,
+      percentage: attempt.percentage,
+      passed: attempt.passed,
+      submittedAt: attempt.submittedAt,
+      answers: attempt.answers, // Respuestas detalladas del intento
+      questions: attempt.quiz.questions.map(q => ({
+        id: q.id,
+        text: q.text,
+        type: q.type,
+        weight: q.weight,
+        answerOptions: q.answerOptions,
+      })),
+    };
+  }
+
+
   private async emitQuizResultNotifications(
     userId: string,
     quiz: any,
@@ -468,7 +620,6 @@ export class QuizzesService {
       data: {
         title: `${originalQuiz.title} (Copia)`,
         passingScore: originalQuiz.passingScore,
-        attemptsAllowed: originalQuiz.attemptsAllowed,
         moduleId: targetModuleId,
       },
       include: {

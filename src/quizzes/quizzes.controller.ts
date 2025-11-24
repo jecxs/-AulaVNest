@@ -110,18 +110,15 @@ export class QuizzesController {
     @Body() submitQuizDto: SubmitQuizDto,
     @CurrentUser() user: any,
   ) {
-    // Validar que el quizId coincida
     if (submitQuizDto.quizId !== quizId) {
       throw new BadRequestException('Quiz ID mismatch');
     }
 
-    // Verificar acceso
     await this.quizzesService.checkUserAccessToQuiz(
       quizId,
       user.id,
       user.roles,
     );
-
     return this.quizzesService.submitQuiz(submitQuizDto, user.id);
   }
 
@@ -172,5 +169,65 @@ export class QuizzesController {
   @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string) {
     return this.quizzesService.remove(id);
+  }
+
+  /**
+   * GET /quizzes/:id/my-attempts
+   * Obtener historial de intentos del estudiante en este quiz
+   */
+  @Get(':id/my-attempts')
+  @UseGuards(JwtAuthGuard)
+  async getMyQuizAttempts(
+    @Param('id') quizId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.quizzesService.getUserQuizAttempts(user.id, quizId);
+  }
+
+  /**
+   * GET /quizzes/attempts/:attemptId
+   * Ver detalle de un intento específico (con respuestas)
+   */
+  @Get('attempts/:attemptId')
+  @UseGuards(JwtAuthGuard)
+  async getAttemptDetail(
+    @Param('attemptId') attemptId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.quizzesService.getQuizAttemptDetail(attemptId, user.id);
+  }
+
+  /**
+   * GET /quizzes/:id/best-attempt
+   * Obtener el mejor intento del estudiante
+   */
+  @Get(':id/best-attempt')
+  @UseGuards(JwtAuthGuard)
+  async getBestAttempt(
+    @Param('id') quizId: string,
+    @CurrentUser() user: any,
+  ) {
+    const history = await this.quizzesService.getUserQuizAttempts(user.id, quizId);
+
+    if (history.totalAttempts === 0) {
+      return {
+        message: 'No attempts found',
+        hasBestAttempt: false,
+      };
+    }
+
+    const bestAttempt = history.attempts[0]; // Ya están ordenados por score desc
+
+    return {
+      hasBestAttempt: true,
+      bestAttempt: {
+        id: bestAttempt.id,
+        score: bestAttempt.score,
+        maxScore: bestAttempt.maxScore,
+        percentage: bestAttempt.percentage,
+        passed: bestAttempt.passed,
+        submittedAt: bestAttempt.submittedAt,
+      },
+    };
   }
 }

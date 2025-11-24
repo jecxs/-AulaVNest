@@ -169,7 +169,6 @@ model Quiz {
   id             String @id @default(cuid())
   title          String
   passingScore   Int    @default(70)
-  attemptsAllowed Int   @default(3)
 
   // Foreign Keys
   moduleId String
@@ -177,6 +176,7 @@ model Quiz {
   // Relations
   module    Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   questions Question[]
+  attempts  QuizAttempt[]
 
   @@map("quizzes")
 }
@@ -231,6 +231,7 @@ model Enrollment {
   progress     Progress[]
   paymentReceipts PaymentReceipt[]
   certificates Certificate[]
+  quizAttempts QuizAttempt[]
 
   @@unique([userId, courseId])
   @@map("enrollments")
@@ -252,6 +253,28 @@ model Progress {
   @@unique([enrollmentId, lessonId])
   @@map("progress")
 }
+model QuizAttempt {
+  id           String   @id @default(cuid())
+  score        Int      // Puntaje obtenido
+  maxScore     Int      // Puntaje máximo posible
+  percentage   Int      // Porcentaje obtenido
+  passed       Boolean  // Si aprobó o no
+  answers      Json     // Respuestas detalladas (JSON)
+  submittedAt  DateTime @default(now())
+
+  // Foreign Keys
+  enrollmentId String
+  quizId       String
+
+  // Relations
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  quiz       Quiz       @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@index([enrollmentId])
+  @@index([quizId])
+  @@map("quiz_attempts")
+}
+
 
 model LiveSession {
   id         String   @id @default(cuid())

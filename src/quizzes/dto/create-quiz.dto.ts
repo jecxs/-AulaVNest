@@ -21,12 +21,6 @@ export class CreateQuizDto {
   @Type(() => Number)
   passingScore?: number = 70;
 
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Max(10)
-  @Type(() => Number)
-  attemptsAllowed?: number = 3;
 
   @IsString()
   moduleId: string;

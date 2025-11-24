@@ -1,4 +1,4 @@
-// quizzes/dto/submit-quiz.dto.ts
+// quizzes/dto/submit-quiz.dto.ts - ACTUALIZADO
 import {
   IsString,
   IsArray,
@@ -13,7 +13,7 @@ export class SubmitAnswerDto {
 
   @IsArray()
   @IsString({ each: true })
-  selectedOptionIds: string[]; // Array para soportar múltiples respuestas
+  selectedOptionIds: string[];
 }
 
 export class SubmitQuizDto {
@@ -41,4 +41,5 @@ export class QuizResultDto {
     points: number;
   }>;
   submittedAt: Date;
+  attemptId?: string; // ✅ NUEVO: ID del intento guardado
 }
