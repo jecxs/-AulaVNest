@@ -203,11 +203,11 @@ export class QuizzesController {
    */
   @Get(':id/best-attempt')
   @UseGuards(JwtAuthGuard)
-  async getBestAttempt(
-    @Param('id') quizId: string,
-    @CurrentUser() user: any,
-  ) {
-    const history = await this.quizzesService.getUserQuizAttempts(user.id, quizId);
+  async getBestAttempt(@Param('id') quizId: string, @CurrentUser() user: any) {
+    const history = await this.quizzesService.getUserQuizAttempts(
+      user.id,
+      quizId,
+    );
 
     if (history.totalAttempts === 0) {
       return {

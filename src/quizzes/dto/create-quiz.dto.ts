@@ -21,7 +21,6 @@ export class CreateQuizDto {
   @Type(() => Number)
   passingScore?: number = 70;
 
-
   @IsString()
   moduleId: string;
 }

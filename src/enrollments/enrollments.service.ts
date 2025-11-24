@@ -374,9 +374,7 @@ export class EnrollmentsService {
           },
 
           course: {
-
             select: {
-
               id: true,
 
               title: true,
@@ -396,33 +394,24 @@ export class EnrollmentsService {
               estimatedHours: true,
 
               category: {
-
                 select: { name: true, slug: true },
-
               },
 
               instructor: {
-
                 select: {
-
                   id: true,
 
                   firstName: true,
 
                   lastName: true,
-
                 },
-
               },
 
               _count: {
-
                 select: {
-
                   modules: true,
 
                   enrollments: true,
-
                 },
               },
             },
@@ -560,9 +549,7 @@ export class EnrollmentsService {
         },
 
         course: {
-
           select: {
-
             id: true,
 
             title: true,
@@ -582,39 +569,27 @@ export class EnrollmentsService {
             estimatedHours: true,
 
             category: {
-
               select: { name: true, slug: true },
-
             },
 
             instructor: {
-
               select: {
-
                 id: true,
 
                 firstName: true,
 
                 lastName: true,
-
               },
-
             },
 
             _count: {
-
               select: {
-
                 modules: true,
 
                 enrollments: true,
-
               },
-
             },
-
           },
-
         },
       },
 
@@ -780,9 +755,7 @@ export class EnrollmentsService {
         },
 
         course: {
-
           select: {
-
             id: true,
 
             title: true,
@@ -804,39 +777,27 @@ export class EnrollmentsService {
             estimatedHours: true,
 
             category: {
-
               select: { name: true, slug: true },
-
             },
 
             instructor: {
-
               select: {
-
                 id: true,
 
                 firstName: true,
 
                 lastName: true,
-
               },
-
             },
 
             _count: {
-
               select: {
-
                 modules: true,
 
                 enrollments: true,
-
               },
-
             },
-
           },
-
         },
 
         enrolledBy: {

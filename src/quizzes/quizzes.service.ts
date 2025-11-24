@@ -301,7 +301,6 @@ export class QuizzesService {
       throw new ForbiddenException('You do not have access to this quiz');
     }
 
-
     let totalScore = 0;
     let maxScore = 0;
     const answerResults: Array<{
@@ -360,7 +359,6 @@ export class QuizzesService {
 
     const percentage = Math.round((totalScore / maxScore) * 100);
     const passed = percentage >= quiz.passingScore;
-
 
     const quizAttempt = await this.prisma.quizAttempt.create({
       data: {
@@ -442,11 +440,13 @@ export class QuizzesService {
 
     // Calcular estadísticas
     const totalAttempts = attempts.length;
-    const bestAttempt = attempts.reduce((best, current) =>
-        current.percentage > (best?.percentage || 0) ? current : best
-      , attempts[0]);
+    const bestAttempt = attempts.reduce(
+      (best, current) =>
+        current.percentage > (best?.percentage || 0) ? current : best,
+      attempts[0],
+    );
 
-    const passed = attempts.some(attempt => attempt.passed);
+    const passed = attempts.some((attempt) => attempt.passed);
 
     return {
       quizId: quiz.id,
@@ -457,7 +457,7 @@ export class QuizzesService {
       bestPercentage: bestAttempt?.percentage || 0,
       lastAttempt: attempts[0]?.submittedAt,
       passed,
-      attempts: attempts.map(attempt => ({
+      attempts: attempts.map((attempt) => ({
         id: attempt.id,
         score: attempt.score,
         maxScore: attempt.maxScore,
@@ -509,7 +509,7 @@ export class QuizzesService {
       passed: attempt.passed,
       submittedAt: attempt.submittedAt,
       answers: attempt.answers, // Respuestas detalladas del intento
-      questions: attempt.quiz.questions.map(q => ({
+      questions: attempt.quiz.questions.map((q) => ({
         id: q.id,
         text: q.text,
         type: q.type,
@@ -518,7 +518,6 @@ export class QuizzesService {
       })),
     };
   }
-
 
   private async emitQuizResultNotifications(
     userId: string,
