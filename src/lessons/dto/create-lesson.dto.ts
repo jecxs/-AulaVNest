@@ -7,8 +7,9 @@ import {
   IsUrl,
   Min,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { LessonType } from '@prisma/client';
 
 export class CreateLessonDto {
@@ -31,8 +32,13 @@ export class CreateLessonDto {
   durationSec?: number;
 
   @IsOptional()
+  @ValidateIf((o) => o.videoUrl !== '' && o.videoUrl !== null && o.videoUrl !== undefined)
   @IsUrl()
-  videoUrl?: string;
+  @Transform(({ value }) => {
+    if (value === '' || value === null) return undefined;
+    return value;
+  })
+  videoUrl?: string
 
   @IsOptional()
   @IsString()
