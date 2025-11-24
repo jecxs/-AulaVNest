@@ -216,6 +216,7 @@ export class QuizzesService {
     return {
       id: quiz.id,
       title: quiz.title,
+      moduleId: quiz.moduleId,
       passingScore: quiz.passingScore,
       questionsCount: quiz._count.questions, // ← Ahora _count está disponible
       totalPoints,

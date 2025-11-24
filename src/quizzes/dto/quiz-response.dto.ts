@@ -36,6 +36,7 @@ export class QuizForStudentDto {
   title: string;
   passingScore: number;
   attemptsAllowed: number;
+  moduleId: string;
   questionsCount: number;
   totalPoints: number;
 }
