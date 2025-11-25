@@ -135,4 +135,12 @@ export class CoursesController {
   async remove(@Param('id') id: string) {
     return this.coursesService.remove(id);
   }
+
+  // GET /courses/:id/statistics - Estadísticas de un curso específico (Solo ADMIN)
+  @Get(':id/statistics')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RoleName.ADMIN)
+  async getCourseStatistics(@Param('id') id: string) {
+    return this.coursesService.getCourseStatistics(id);
+  }
 }

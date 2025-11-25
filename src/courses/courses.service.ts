@@ -410,4 +410,124 @@ export class CoursesService {
 
     return course !== null && course.id !== excludeId;
   }
+  async getCourseStatistics(courseId: string) {
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId },
+      include: {
+        _count: {
+          select: {
+            modules: true,
+            enrollments: true,
+          },
+        },
+      },
+    });
+
+    if (!course) {
+      throw new NotFoundException('Course not found');
+    }
+
+    // Estadísticas de enrollments
+    const [
+      activeEnrollments,
+      completedEnrollments,
+      suspendedEnrollments,
+      expiredEnrollments,
+      paymentPending,
+      recentEnrollments,
+    ] = await Promise.all([
+      this.prisma.enrollment.count({
+        where: { courseId, status: EnrollmentStatus.ACTIVE },
+      }),
+      this.prisma.enrollment.count({
+        where: { courseId, status: EnrollmentStatus.COMPLETED },
+      }),
+      this.prisma.enrollment.count({
+        where: { courseId, status: EnrollmentStatus.SUSPENDED },
+      }),
+      this.prisma.enrollment.count({
+        where: { courseId, status: EnrollmentStatus.EXPIRED },
+      }),
+      this.prisma.enrollment.count({
+        where: { courseId, paymentConfirmed: false },
+      }),
+      this.prisma.enrollment.count({
+        where: {
+          courseId,
+          enrolledAt: {
+            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+          },
+        },
+      }),
+    ]);
+
+    // Total de lecciones en el curso
+    const totalLessons = await this.prisma.lesson.count({
+      where: { module: { courseId } },
+    });
+
+    // Progreso promedio del curso
+    const enrollmentsWithProgress = await this.prisma.enrollment.findMany({
+      where: {
+        courseId,
+        status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.COMPLETED] },
+      },
+      include: {
+        progress: {
+          where: { completedAt: { not: null } },
+        },
+      },
+    });
+
+    let totalCompletionRate = 0;
+    let studentsWithProgress = 0;
+
+    enrollmentsWithProgress.forEach((enrollment) => {
+      if (totalLessons > 0) {
+        const completionRate = (enrollment.progress.length / totalLessons) * 100;
+        totalCompletionRate += completionRate;
+        studentsWithProgress++;
+      }
+    });
+
+    const averageCompletionRate =
+      studentsWithProgress > 0
+        ? Math.round(totalCompletionRate / studentsWithProgress)
+        : 0;
+
+    // Estudiantes más activos (últimos 7 días)
+    const recentActivity = await this.prisma.progress.findMany({
+      where: {
+        lesson: { module: { courseId } },
+        completedAt: {
+          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        },
+      },
+      distinct: ['enrollmentId'],
+    });
+
+    return {
+      totalStudents: course._count.enrollments,
+      totalModules: course._count.modules,
+      totalLessons,
+      enrollmentStats: {
+        active: activeEnrollments,
+        completed: completedEnrollments,
+        suspended: suspendedEnrollments,
+        expired: expiredEnrollments,
+      },
+      paymentStats: {
+        confirmed: course._count.enrollments - paymentPending,
+        pending: paymentPending,
+      },
+      progressStats: {
+        averageCompletionRate,
+        studentsWithProgress,
+      },
+      activityStats: {
+        recentEnrollments: recentEnrollments,
+        activeStudentsLast7Days: recentActivity.length,
+      },
+    };
+  }
 }
