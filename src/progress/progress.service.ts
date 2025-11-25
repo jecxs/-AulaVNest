@@ -397,11 +397,6 @@ export class ProgressService {
    * Verificar si una lesson está completada
    */
   async checkLessonProgress(userId: string, lessonId: string) {
-    console.log('🔍 [checkLessonProgress] Verificando progreso:', {
-      userId,
-      lessonId,
-    });
-
     const lesson = await this.prisma.lesson.findUnique({
       where: { id: lessonId },
       include: {
@@ -442,15 +437,6 @@ export class ProgressService {
 
     // 🐛 FIX: Verificar correctamente si existe progreso completado
     const isCompleted = Boolean(progress && progress.completedAt !== null);
-
-    console.log('✅ [checkLessonProgress] Resultado:', {
-      lessonId: lesson.id,
-      lessonTitle: lesson.title,
-      progressExists: Boolean(progress),
-      completedAt: progress?.completedAt,
-      isCompleted,
-      enrollmentId: enrollment.id,
-    });
 
     return {
       lessonId: lesson.id,
