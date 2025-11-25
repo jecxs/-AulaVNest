@@ -28,6 +28,57 @@ import { RoleName } from '@prisma/client';
 export class LiveSessionsController {
   constructor(private readonly liveSessionsService: LiveSessionsService) {}
 
+  /**
+   * GET /live-sessions/my-sessions
+   * Obtener todas las sesiones de los cursos del estudiante
+   */
+  @Get('my-sessions')
+  async getMySessions(@CurrentUser() user: any) {
+    // Si es admin, puede ver todas
+    if (user.roles.includes(RoleName.ADMIN)) {
+      return this.liveSessionsService.findAll();
+    }
+
+    return this.liveSessionsService.getStudentSessions(user.id);
+  }
+
+  /**
+   * GET /live-sessions/my-upcoming
+   * Obtener solo las próximas sesiones del estudiante
+   */
+  @Get('my-upcoming')
+  async getMyUpcomingSessions(@CurrentUser() user: any) {
+    return this.liveSessionsService.getStudentUpcomingSessions(user.id);
+  }
+
+  /**
+   * GET /live-sessions/course/:courseId
+   * Obtener sesiones de un curso específico
+   * (estudiante con acceso o admin)
+   */
+  @Get('course/:courseId')
+  async getCourseSessions(
+    @Param('courseId') courseId: string,
+    @CurrentUser() user: any,
+  ) {
+    // Si es estudiante, verificar acceso
+    if (!user.roles.includes(RoleName.ADMIN)) {
+      const hasAccess = await this.liveSessionsService.checkStudentCourseAccess(
+        courseId,
+        user.id,
+      );
+
+      if (!hasAccess) {
+        throw new ForbiddenException(
+          'No tienes acceso a este curso',
+        );
+      }
+    }
+
+    return this.liveSessionsService.getCourseSessions(courseId);
+  }
+
+
   // ========== ENDPOINTS PARA ADMIN ==========
 
   /**
@@ -103,53 +154,6 @@ export class LiveSessionsController {
 
   // ========== ENDPOINTS PARA ESTUDIANTES ==========
 
-  /**
-   * GET /live-sessions/my-sessions
-   * Obtener todas las sesiones de los cursos del estudiante
-   */
-  @Get('my-sessions')
-  async getMySessions(@CurrentUser() user: any) {
-    // Si es admin, puede ver todas
-    if (user.roles.includes(RoleName.ADMIN)) {
-      return this.liveSessionsService.findAll();
-    }
 
-    return this.liveSessionsService.getStudentSessions(user.id);
-  }
 
-  /**
-   * GET /live-sessions/my-upcoming
-   * Obtener solo las próximas sesiones del estudiante
-   */
-  @Get('my-upcoming')
-  async getMyUpcomingSessions(@CurrentUser() user: any) {
-    return this.liveSessionsService.getStudentUpcomingSessions(user.id);
-  }
-
-  /**
-   * GET /live-sessions/course/:courseId
-   * Obtener sesiones de un curso específico
-   * (estudiante con acceso o admin)
-   */
-  @Get('course/:courseId')
-  async getCourseSessions(
-    @Param('courseId') courseId: string,
-    @CurrentUser() user: any,
-  ) {
-    // Si es estudiante, verificar acceso
-    if (!user.roles.includes(RoleName.ADMIN)) {
-      const hasAccess = await this.liveSessionsService.checkStudentCourseAccess(
-        courseId,
-        user.id,
-      );
-
-      if (!hasAccess) {
-        throw new ForbiddenException(
-          'No tienes acceso a este curso',
-        );
-      }
-    }
-
-    return this.liveSessionsService.getCourseSessions(courseId);
-  }
 }

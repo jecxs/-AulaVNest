@@ -17,6 +17,7 @@ import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { ProgressModule } from './progress/progress.module';
 import { PaymentReceiptsModule } from './payment-receipts/payment-receipts.module';
 import { LiveSessionsModule } from './live-sessions/live-sessions.module';
+import { StudentsModule } from './students/students.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
@@ -42,6 +43,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     ProgressModule,
     PaymentReceiptsModule,
     LiveSessionsModule,
+    StudentsModule,
   ],
 })
 export class AppModule {}
