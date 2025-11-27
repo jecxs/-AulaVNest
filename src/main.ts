@@ -16,7 +16,11 @@ async function bootstrap() {
 
   // Habilitar CORS para el frontend
   app.enableCors({
-    origin: ['http://localhost:3001', 'http://localhost:3000'], // Ajustar según tu frontend
+    origin: [
+      'http://localhost:3001',
+      'http://localhost:3000',
+      'https://aula-front-nextjs.vercel.app',
+    ], // Ajustar según tu frontend
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
