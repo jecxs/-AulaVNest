@@ -21,9 +21,6 @@
     "postinstall": "prisma generate",
     "migrate:deploy": "prisma migrate deploy"
   },
-  "prisma": {
-    "seed": "ts-node prisma/seed.ts"
-  },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
