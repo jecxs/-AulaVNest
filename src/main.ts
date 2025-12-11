@@ -20,6 +20,7 @@ async function bootstrap() {
       'http://localhost:3001',
       'http://localhost:3000',
       'https://palomino-leargning-center.vercel.app',
+      'illumina-academy.vercel.app'
     ], // Ajustar según tu frontend
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
