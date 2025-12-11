@@ -143,7 +143,10 @@ export class LiveSessionsService {
   /**
    * Actualizar una sesión existente
    */
-  async update(id: string, updateDto: UpdateLiveSessionDto): Promise<LiveSession> {
+  async update(
+    id: string,
+    updateDto: UpdateLiveSessionDto,
+  ): Promise<LiveSession> {
     const existingSession = await this.findOne(id);
 
     // Si se actualizan las fechas, validarlas
@@ -175,7 +178,8 @@ export class LiveSessionsService {
     if (updateDto.topic) updateData.topic = updateDto.topic;
     if (updateDto.startsAt) updateData.startsAt = new Date(updateDto.startsAt);
     if (updateDto.endsAt) updateData.endsAt = new Date(updateDto.endsAt);
-    if (updateDto.meetingUrl !== undefined) updateData.meetingUrl = updateDto.meetingUrl;
+    if (updateDto.meetingUrl !== undefined)
+      updateData.meetingUrl = updateDto.meetingUrl;
 
     return await this.prisma.liveSession.update({
       where: { id },
@@ -317,7 +321,10 @@ export class LiveSessionsService {
   /**
    * Verificar si un estudiante tiene acceso a un curso
    */
-  async checkStudentCourseAccess(courseId: string, userId: string): Promise<boolean> {
+  async checkStudentCourseAccess(
+    courseId: string,
+    userId: string,
+  ): Promise<boolean> {
     const enrollment = await this.prisma.enrollment.findFirst({
       where: {
         courseId,

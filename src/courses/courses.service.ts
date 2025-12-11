@@ -484,7 +484,8 @@ export class CoursesService {
 
     enrollmentsWithProgress.forEach((enrollment) => {
       if (totalLessons > 0) {
-        const completionRate = (enrollment.progress.length / totalLessons) * 100;
+        const completionRate =
+          (enrollment.progress.length / totalLessons) * 100;
         totalCompletionRate += completionRate;
         studentsWithProgress++;
       }

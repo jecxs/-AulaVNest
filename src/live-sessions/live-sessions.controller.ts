@@ -69,15 +69,12 @@ export class LiveSessionsController {
       );
 
       if (!hasAccess) {
-        throw new ForbiddenException(
-          'No tienes acceso a este curso',
-        );
+        throw new ForbiddenException('No tienes acceso a este curso');
       }
     }
 
     return this.liveSessionsService.getCourseSessions(courseId);
   }
-
 
   // ========== ENDPOINTS PARA ADMIN ==========
 
@@ -119,9 +116,7 @@ export class LiveSessionsController {
       );
 
       if (!hasAccess) {
-        throw new ForbiddenException(
-          'No tienes acceso a este curso',
-        );
+        throw new ForbiddenException('No tienes acceso a este curso');
       }
     }
 
@@ -153,7 +148,4 @@ export class LiveSessionsController {
   }
 
   // ========== ENDPOINTS PARA ESTUDIANTES ==========
-
-
-
 }

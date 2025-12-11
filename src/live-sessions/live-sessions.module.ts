@@ -6,9 +6,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 @Module({
   imports: [NotificationsModule],
   controllers: [LiveSessionsController],
-  providers: [
-    LiveSessionsService
-  ],
+  providers: [LiveSessionsService],
   exports: [LiveSessionsService],
 })
 export class LiveSessionsModule {}

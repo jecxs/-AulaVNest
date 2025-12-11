@@ -29,31 +29,35 @@ export class StudentsService {
     }
 
     // 2. Obtener estadísticas de enrollments
-    const [totalEnrolled, activeEnrollments, completedCourses, expiredEnrollments] =
-      await Promise.all([
-        this.prisma.enrollment.count({
-          where: { userId },
-        }),
-        this.prisma.enrollment.count({
-          where: {
-            userId,
-            status: EnrollmentStatus.ACTIVE,
-            OR: [{ expiresAt: null }, { expiresAt: { gte: new Date() } }],
-          },
-        }),
-        this.prisma.enrollment.count({
-          where: {
-            userId,
-            status: EnrollmentStatus.COMPLETED,
-          },
-        }),
-        this.prisma.enrollment.count({
-          where: {
-            userId,
-            status: EnrollmentStatus.EXPIRED,
-          },
-        }),
-      ]);
+    const [
+      totalEnrolled,
+      activeEnrollments,
+      completedCourses,
+      expiredEnrollments,
+    ] = await Promise.all([
+      this.prisma.enrollment.count({
+        where: { userId },
+      }),
+      this.prisma.enrollment.count({
+        where: {
+          userId,
+          status: EnrollmentStatus.ACTIVE,
+          OR: [{ expiresAt: null }, { expiresAt: { gte: new Date() } }],
+        },
+      }),
+      this.prisma.enrollment.count({
+        where: {
+          userId,
+          status: EnrollmentStatus.COMPLETED,
+        },
+      }),
+      this.prisma.enrollment.count({
+        where: {
+          userId,
+          status: EnrollmentStatus.EXPIRED,
+        },
+      }),
+    ]);
 
     // 3. Obtener cursos activos con progreso
     const activeEnrollmentsData = await this.prisma.enrollment.findMany({
@@ -106,7 +110,9 @@ export class StudentsService {
 
       // Calcular porcentaje de progreso
       const progressPercentage =
-        totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+        totalLessons > 0
+          ? Math.round((completedLessons / totalLessons) * 100)
+          : 0;
 
       // Obtener IDs de lecciones completadas
       const completedLessonIds = new Set(
@@ -149,21 +155,21 @@ export class StudentsService {
     const upcomingSessions =
       courseIds.length > 0
         ? await this.prisma.liveSession.findMany({
-          where: {
-            courseId: { in: courseIds },
-            startsAt: { gte: now },
-          },
-          include: {
-            course: {
-              select: {
-                id: true,
-                title: true,
+            where: {
+              courseId: { in: courseIds },
+              startsAt: { gte: now },
+            },
+            include: {
+              course: {
+                select: {
+                  id: true,
+                  title: true,
+                },
               },
             },
-          },
-          orderBy: { startsAt: 'asc' },
-          take: 5, // Limitar a las próximas 5 sesiones
-        })
+            orderBy: { startsAt: 'asc' },
+            take: 5, // Limitar a las próximas 5 sesiones
+          })
         : [];
 
     // 6. Obtener contador de notificaciones sin leer
@@ -222,31 +228,35 @@ export class StudentsService {
    * Obtener solo las estadísticas rápidas del estudiante
    */
   async getStudentStats(userId: string) {
-    const [totalEnrolled, activeEnrollments, completedCourses, unreadNotifications] =
-      await Promise.all([
-        this.prisma.enrollment.count({
-          where: { userId },
-        }),
-        this.prisma.enrollment.count({
-          where: {
-            userId,
-            status: EnrollmentStatus.ACTIVE,
-            OR: [{ expiresAt: null }, { expiresAt: { gte: new Date() } }],
-          },
-        }),
-        this.prisma.enrollment.count({
-          where: {
-            userId,
-            status: EnrollmentStatus.COMPLETED,
-          },
-        }),
-        this.prisma.notification.count({
-          where: {
-            userId,
-            readAt: null,
-          },
-        }),
-      ]);
+    const [
+      totalEnrolled,
+      activeEnrollments,
+      completedCourses,
+      unreadNotifications,
+    ] = await Promise.all([
+      this.prisma.enrollment.count({
+        where: { userId },
+      }),
+      this.prisma.enrollment.count({
+        where: {
+          userId,
+          status: EnrollmentStatus.ACTIVE,
+          OR: [{ expiresAt: null }, { expiresAt: { gte: new Date() } }],
+        },
+      }),
+      this.prisma.enrollment.count({
+        where: {
+          userId,
+          status: EnrollmentStatus.COMPLETED,
+        },
+      }),
+      this.prisma.notification.count({
+        where: {
+          userId,
+          readAt: null,
+        },
+      }),
+    ]);
 
     return {
       totalEnrolled,

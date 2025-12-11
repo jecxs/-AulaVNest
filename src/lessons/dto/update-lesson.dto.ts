@@ -7,7 +7,7 @@ import {
   IsUrl,
   Min,
   MaxLength,
-  ValidateIf
+  ValidateIf,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { LessonType } from '@prisma/client';
@@ -35,7 +35,9 @@ export class UpdateLessonDto {
   durationSec?: number;
 
   @IsOptional()
-  @ValidateIf((o) => o.videoUrl !== '' && o.videoUrl !== null && o.videoUrl !== undefined)
+  @ValidateIf(
+    (o) => o.videoUrl !== '' && o.videoUrl !== null && o.videoUrl !== undefined,
+  )
   @IsUrl({}, { message: 'videoUrl must be a valid URL' })
   @Transform(({ value }) => {
     // Transformar cadenas vacías a undefined

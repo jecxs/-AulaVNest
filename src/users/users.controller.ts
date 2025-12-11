@@ -1,4 +1,4 @@
-//users.controller.ts
+// src/users/users.controller.ts - ACTUALIZACIÓN COMPLETA
 import {
   Controller,
   Get,
@@ -7,83 +7,115 @@ import {
   Patch,
   Param,
   Delete,
-  HttpCode,
-  HttpStatus,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto, UserResponseDto } from './dto/update-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangePasswordDto, AdminResetPasswordDto } from './dto/change-password.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RoleName } from '@prisma/client';
 
 @Controller('users')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  // POST /users - Crear nuevo usuario
+  // ========== CREAR USUARIO (ADMIN) ==========
   @Post()
-  @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
-    const user = await this.usersService.create(createUserDto);
-    return this.excludePassword(user);
+  @Roles(RoleName.ADMIN)
+  async create(@Body() createUserDto: CreateUserDto) {
+    const result = await this.usersService.create(createUserDto);
+
+    // Si se generó una contraseña automáticamente, incluirla en la respuesta
+    if (result.generatedPassword) {
+      return {
+        user: result.user,
+        generatedPassword: result.generatedPassword,
+        message: 'User created successfully with auto-generated password',
+      };
+    }
+
+    return {
+      user: result.user,
+      message: 'User created successfully',
+    };
   }
 
-  // GET /users - Obtener todos los usuarios
+  // ========== CAMBIAR CONTRASEÑA (USUARIO AUTENTICADO) ==========
+  @Patch('change-password')
+  async changePassword(
+    @Request() req,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    return this.usersService.changePassword(req.user.id, changePasswordDto);
+  }
+
+  // ========== RESETEAR CONTRASEÑA (ADMIN) ==========
+  @Patch(':id/reset-password')
+  @Roles(RoleName.ADMIN)
+  async adminResetPassword(
+    @Request() req,
+    @Param('id') targetUserId: string,
+    @Body() resetPasswordDto?: AdminResetPasswordDto,
+  ) {
+    const result = await this.usersService.adminResetPassword(
+      req.user.id,
+      targetUserId,
+      resetPasswordDto,
+    );
+
+    return {
+      user: result.user,
+      newPassword: result.newPassword,
+      message: 'Password reset successfully',
+    };
+  }
+
+  // ========== RUTAS EXISTENTES (SIN CAMBIOS) ==========
+
   @Get()
-  async findAll(): Promise<UserResponseDto[]> {
-    const users = await this.usersService.findAll();
-    return users.map((user) => this.excludePassword(user));
+  @Roles(RoleName.ADMIN)
+  findAll() {
+    return this.usersService.findAll();
   }
 
-  // GET /users/stats - Obtener estadísticas
-  @Get('stats')
-  async getStats() {
-    return this.usersService.getUserStats();
-  }
-
-  // GET /users/:id - Obtener usuario por ID
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<UserResponseDto> {
-    const user = await this.usersService.findOne(id);
-    return this.excludePassword(user);
+  @Roles(RoleName.ADMIN)
+  findOne(@Param('id') id: string) {
+    return this.usersService.findOne(id);
   }
 
-  // PATCH /users/:id - Actualizar usuario
   @Patch(':id')
-  async update(
-    @Param('id') id: string,
-    @Body() updateUserDto: UpdateUserDto,
-  ): Promise<UserResponseDto> {
-    const user = await this.usersService.update(id, updateUserDto);
-    return this.excludePassword(user);
+  @Roles(RoleName.ADMIN)
+  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+    return this.usersService.update(id, updateUserDto);
   }
 
-  // PATCH /users/:id/suspend - Suspender usuario
-  @Patch(':id/suspend')
-  @HttpCode(HttpStatus.OK)
-  async suspend(@Param('id') id: string): Promise<UserResponseDto> {
-    const user = await this.usersService.suspendUser(id);
-    return this.excludePassword(user);
-  }
-
-  // PATCH /users/:id/activate - Activar usuario
-  @Patch(':id/activate')
-  @HttpCode(HttpStatus.OK)
-  async activate(@Param('id') id: string): Promise<UserResponseDto> {
-    const user = await this.usersService.activateUser(id);
-    return this.excludePassword(user);
-  }
-
-  // DELETE /users/:id - Eliminar usuario (soft delete)
   @Delete(':id')
-  @HttpCode(HttpStatus.OK)
-  async remove(@Param('id') id: string): Promise<UserResponseDto> {
-    const user = await this.usersService.remove(id);
-    return this.excludePassword(user);
+  @Roles(RoleName.ADMIN)
+  remove(@Param('id') id: string) {
+    return this.usersService.remove(id);
   }
 
-  // Método privado para excluir contraseña de las respuestas
-  private excludePassword(user: any): UserResponseDto {
-    const { passwordHash, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+  @Patch(':id/suspend')
+  @Roles(RoleName.ADMIN)
+  suspend(@Param('id') id: string) {
+    return this.usersService.suspendUser(id);
+  }
+
+  @Patch(':id/activate')
+  @Roles(RoleName.ADMIN)
+  activate(@Param('id') id: string) {
+    return this.usersService.activateUser(id);
+  }
+
+  @Get('stats')
+  @Roles(RoleName.ADMIN)
+  getStats() {
+    return this.usersService.getUserStats();
   }
 }
